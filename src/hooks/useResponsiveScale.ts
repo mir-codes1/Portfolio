@@ -1,0 +1,43 @@
+import { useState, useEffect } from 'react'
+
+// Assembly spans ~3.12 units on each axis; its bounding sphere radius ≈ 2.7 units.
+const ASSEMBLY_RADIUS = 2.7
+
+function computeScale(vw: number, vh: number): number {
+  const minDim = Math.min(vw, vh)
+  if (vw >= 1024) {
+    // Desktop: assembly radius ≤ min(vw, vh) × 0.333 in screen space.
+    // With FOV=45 and camera at z=8, 1 world unit ≈ vh/8 px (rough).
+    // We just drive a world-space scale factor.
+    return Math.min(1.0, minDim / 900)
+  }
+  // Tablet / mobile: occupy ~70 % of shortest dimension.
+  // Target diameter in screen-space = minDim × 0.70.
+  // Diameter in world units ≈ ASSEMBLY_RADIUS * 2 at scale 1.
+  const targetWorldDiameter = (minDim * 0.70) / (vh / 8)
+  return Math.max(0.3, Math.min(1.0, targetWorldDiameter / (ASSEMBLY_RADIUS * 2)))
+}
+
+let debounceTimer: ReturnType<typeof setTimeout>
+
+export function useResponsiveScale(): number {
+  const [scale, setScale] = useState(() =>
+    computeScale(window.innerWidth, window.innerHeight)
+  )
+
+  useEffect(() => {
+    function handleResize() {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        setScale(computeScale(window.innerWidth, window.innerHeight))
+      }, 100)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      clearTimeout(debounceTimer)
+    }
+  }, [])
+
+  return scale
+}
