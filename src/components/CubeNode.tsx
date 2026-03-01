@@ -5,11 +5,11 @@ import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 
 import type { FaceDirection } from '@/data/projects'
-import { FACE_COLORS, GRID_SIZE, getFaceProject } from '@/data/projects'
+import { GRID_SIZE, getFaceProject } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
 
-// ─── Shader: per-face flat colouring + procedural grain ──────────────────────
+// ─── Shader: per-face inner-glow stickers with grain + glass overlay ─────────
 
 const vertexShader = /* glsl */`
   varying vec3 vLocalNormal;
@@ -22,9 +22,13 @@ const vertexShader = /* glsl */`
 `
 
 const fragmentShader = /* glsl */`
-  uniform vec3 u_px; uniform vec3 u_nx;
-  uniform vec3 u_py; uniform vec3 u_ny;
-  uniform vec3 u_pz; uniform vec3 u_nz;
+  uniform vec3 u_px_center; uniform vec3 u_px_edge;
+  uniform vec3 u_nx_center; uniform vec3 u_nx_edge;
+  uniform vec3 u_py_center; uniform vec3 u_py_edge;
+  uniform vec3 u_ny_center; uniform vec3 u_ny_edge;
+  uniform vec3 u_pz_center; uniform vec3 u_pz_edge;
+  uniform vec3 u_nz_center; uniform vec3 u_nz_edge;
+  uniform vec3 u_bg;
   uniform float u_hover;
   uniform float u_opacity;
   varying vec3 vLocalNormal;
@@ -43,14 +47,78 @@ const fragmentShader = /* glsl */`
   void main() {
     vec3 n = normalize(vLocalNormal);
     vec3 an = abs(n);
-    vec3 col;
-    if (an.x >= an.y && an.x >= an.z) col = n.x > 0.0 ? u_px : u_nx;
-    else if (an.y >= an.x && an.y >= an.z) col = n.y > 0.0 ? u_py : u_ny;
-    else col = n.z > 0.0 ? u_pz : u_nz;
 
+    // Pick gradient colours for the active face
+    vec3 centerCol;
+    vec3 edgeCol;
+    if (an.x >= an.y && an.x >= an.z) {
+      if (n.x > 0.0) {
+        centerCol = u_px_center;
+        edgeCol   = u_px_edge;
+      } else {
+        centerCol = u_nx_center;
+        edgeCol   = u_nx_edge;
+      }
+    } else if (an.y >= an.x && an.y >= an.z) {
+      if (n.y > 0.0) {
+        centerCol = u_py_center;
+        edgeCol   = u_py_edge;
+      } else {
+        centerCol = u_ny_center;
+        edgeCol   = u_ny_edge;
+      }
+    } else {
+      if (n.z > 0.0) {
+        centerCol = u_pz_center;
+        edgeCol   = u_pz_edge;
+      } else {
+        centerCol = u_nz_center;
+        edgeCol   = u_nz_edge;
+      }
+    }
+
+    // Radial "inner glow" from approx. (40%, 40%)
+    vec2 glowCenter = vec2(0.4, 0.4);
+    float r = distance(vUv, glowCenter);
+    float maxR = 0.8;
+    float t = clamp(r / maxR, 0.0, 1.0);
+    vec3 col = mix(centerCol, edgeCol, t);
+
+    // Fine grain for material richness
     float g = grain(vUv * 20.0) * 0.6 + grain(vUv * 7.0) * 0.4;
-    col *= mix(0.68, 1.0, g);
-    col = mix(col, col + vec3(0.20), u_hover);
+    col *= mix(0.78, 1.02, g);
+
+    // Hover brightening
+    col = mix(col, col + vec3(0.22), u_hover);
+
+    // Specular "glass" streak along a fixed diagonal in UV space
+    float diag = (vUv.x + vUv.y) * 0.7;
+    float glassBand = smoothstep(0.35, 0.0, abs(diag - 0.35));
+    float glassStrength = glassBand * 0.12;
+    col = mix(col, vec3(1.0), glassStrength);
+
+    // Rounded-rect stencil with a dark studio background "gap"
+    float gap = 0.06;
+    float feather = 0.02;
+    vec2 innerMin = vec2(gap, gap);
+    vec2 innerMax = vec2(1.0 - gap, 1.0 - gap);
+
+    // Base rectangle mask (2px-style gap)
+    float maskX = smoothstep(innerMin.x, innerMin.x + feather, vUv.x)
+                * smoothstep(innerMax.x, innerMax.x - feather, vUv.x);
+    float maskY = smoothstep(innerMin.y, innerMin.y + feather, vUv.y)
+                * smoothstep(innerMax.y, innerMax.y - feather, vUv.y);
+    float rectMask = maskX * maskY;
+
+    // Rounded corners via distance to the clipped UV (rounded-rect SDF)
+    vec2 uvClamped = clamp(vUv, innerMin, innerMax);
+    float cornerDist = length(vUv - uvClamped);
+    float radius = 0.14;
+    float cornerMask = smoothstep(radius, radius - feather, cornerDist);
+
+    float mask = rectMask * cornerMask;
+    col = mix(u_bg, col, clamp(mask, 0.0, 1.0));
+
     gl_FragColor = vec4(col, u_opacity);
   }
 `
@@ -89,6 +157,26 @@ function isOuterFace(
 
 // Shared colour values (read-only, cloned per instance below)
 const INNER_GREY = hexToVec3('#202124')
+const GAP_BG     = hexToVec3('#111111')
+
+// Per-face inner/edge colours for the "sticker" gradients
+const FACE_CENTER = {
+  '+x': hexToVec3('#007AFF'), // Cerulean Blue
+  '-x': hexToVec3('#34C759'), // Emerald Glass
+  '+y': hexToVec3('#AF52DE'), // Royal Violet
+  '-y': hexToVec3('#FF3B30'), // Vivid Crimson
+  '+z': hexToVec3('#FFB900'), // Solar Amber
+  '-z': hexToVec3('#F5F5F7'), // Studio White
+} as const satisfies Record<FaceDirection, THREE.Vector3>
+
+const FACE_EDGE = {
+  '+x': hexToVec3('#0068D9'),
+  '-x': hexToVec3('#2CA94C'),
+  '+y': hexToVec3('#9546BD'),
+  '-y': hexToVec3('#D93229'),
+  '+z': hexToVec3('#D99D00'),
+  '-z': hexToVec3('#D1D1D4'),
+} as const satisfies Record<FaceDirection, THREE.Vector3>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -126,24 +214,43 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
 
   // Per-node shader uniforms (cloned so each node is independent)
   const uniforms = useMemo(() => ({
-    u_px: {
-      value: (gridX === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+x']) : INNER_GREY).clone(),
+    u_px_center: {
+      value: (gridX === GRID_SIZE - 1 ? FACE_CENTER['+x'] : INNER_GREY).clone(),
     },
-    u_nx: {
-      value: (gridX === 0 ? hexToVec3(FACE_COLORS['-x']) : INNER_GREY).clone(),
+    u_px_edge: {
+      value: (gridX === GRID_SIZE - 1 ? FACE_EDGE['+x'] : INNER_GREY).clone(),
     },
-    u_py: {
-      value: (gridY === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+y']) : INNER_GREY).clone(),
+    u_nx_center: {
+      value: (gridX === 0 ? FACE_CENTER['-x'] : INNER_GREY).clone(),
     },
-    u_ny: {
-      value: (gridY === 0 ? hexToVec3(FACE_COLORS['-y']) : INNER_GREY).clone(),
+    u_nx_edge: {
+      value: (gridX === 0 ? FACE_EDGE['-x'] : INNER_GREY).clone(),
     },
-    u_pz: {
-      value: (gridZ === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+z']) : INNER_GREY).clone(),
+    u_py_center: {
+      value: (gridY === GRID_SIZE - 1 ? FACE_CENTER['+y'] : INNER_GREY).clone(),
     },
-    u_nz: {
-      value: (gridZ === 0 ? hexToVec3(FACE_COLORS['-z']) : INNER_GREY).clone(),
+    u_py_edge: {
+      value: (gridY === GRID_SIZE - 1 ? FACE_EDGE['+y'] : INNER_GREY).clone(),
     },
+    u_ny_center: {
+      value: (gridY === 0 ? FACE_CENTER['-y'] : INNER_GREY).clone(),
+    },
+    u_ny_edge: {
+      value: (gridY === 0 ? FACE_EDGE['-y'] : INNER_GREY).clone(),
+    },
+    u_pz_center: {
+      value: (gridZ === GRID_SIZE - 1 ? FACE_CENTER['+z'] : INNER_GREY).clone(),
+    },
+    u_pz_edge: {
+      value: (gridZ === GRID_SIZE - 1 ? FACE_EDGE['+z'] : INNER_GREY).clone(),
+    },
+    u_nz_center: {
+      value: (gridZ === 0 ? FACE_CENTER['-z'] : INNER_GREY).clone(),
+    },
+    u_nz_edge: {
+      value: (gridZ === 0 ? FACE_EDGE['-z'] : INNER_GREY).clone(),
+    },
+    u_bg:      { value: GAP_BG.clone() },
     u_hover:   { value: 0 },
     u_opacity: { value: 1 },
   }), [gridX, gridY, gridZ])
