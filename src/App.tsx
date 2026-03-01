@@ -13,7 +13,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 
 function SceneContent() {
   const controlsRef = useRef<OrbitControlsImpl>(null)
-  const { selectedFace } = usePortfolioStore()
+  const { selectedFace, isCameraReturning } = usePortfolioStore()
   useIdleTimer()
 
   return (
@@ -35,7 +35,7 @@ function SceneContent() {
         rotateSpeed={0.55}
         dampingFactor={0.08}
         enableDamping
-        enabled={!selectedFace}
+        enabled={!selectedFace && !isCameraReturning}
       />
 
       <CameraController controlsRef={controlsRef} />

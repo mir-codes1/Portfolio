@@ -22,7 +22,11 @@ const FACE_RIGHT: Record<string, [number, number, number]> = {
   '-y': [-1, 0,  0],
 }
 
-type CameraMode = 'idle' | 'focus'
+const DEFAULT_POS    = new THREE.Vector3(3.6, 3.2, 4.5)
+const DEFAULT_LOOKAT = new THREE.Vector3(0, 0, 0)
+const DEFAULT_UP    = new THREE.Vector3(0, 1, 0)
+
+type CameraMode = 'idle' | 'focus' | 'return'
 
 interface Props {
   controlsRef: MutableRefObject<OrbitControlsImpl | null>
@@ -30,7 +34,7 @@ interface Props {
 
 export function CameraController({ controlsRef }: Props) {
   const { camera } = useThree()
-  const { selectedFace, setSelectedFace } = usePortfolioStore()
+  const { selectedFace, setSelectedFace, setIsCameraReturning } = usePortfolioStore()
 
   const targetPos     = useRef(new THREE.Vector3(3.6, 3.2, 4.5))
   const targetLookAt  = useRef(new THREE.Vector3(0, 0, 0))
@@ -59,12 +63,16 @@ export function CameraController({ controlsRef }: Props) {
       targetLookAt.current.copy(focusPoint)
       targetUp.current.copy(upVec)
       mode.current = 'focus'
+      if (controlsRef.current) controlsRef.current.enabled = false
     } else {
-      // Only relinquish control; do not move camera. Origin zoom is for first load only.
-      mode.current = 'idle'
-      if (controlsRef.current) controlsRef.current.enabled = true
+      // Animate camera back to default overview so zoom returns to normal.
+      targetPos.current.copy(DEFAULT_POS)
+      targetLookAt.current.copy(DEFAULT_LOOKAT)
+      targetUp.current.copy(DEFAULT_UP)
+      mode.current = 'return'
+      setIsCameraReturning(true)
     }
-  }, [selectedFace, controlsRef])
+  }, [selectedFace, setIsCameraReturning, controlsRef])
 
   // Escape key to deselect
   useEffect(() => {
@@ -89,6 +97,15 @@ export function CameraController({ controlsRef }: Props) {
 
     camera.up.copy(currentUp.current)
     camera.lookAt(currentLookAt.current)
+
+    if (mode.current === 'return') {
+      const arrivedPos  = camera.position.distanceTo(DEFAULT_POS) < 0.05
+      const arrivedLook = currentLookAt.current.distanceTo(DEFAULT_LOOKAT) < 0.05
+      if (arrivedPos && arrivedLook) {
+        mode.current = 'idle'
+        setIsCameraReturning(false)
+      }
+    }
   })
 
   return null

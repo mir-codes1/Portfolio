@@ -8,21 +8,25 @@ export interface SelectedFace {
 }
 
 interface PortfolioStore {
-  hoveredFaceId:  string | null    // `${nodeIndex}-${faceDir}`
-  selectedFace:   SelectedFace | null
-  isIdle:         boolean
+  hoveredFaceId:       string | null
+  selectedFace:        SelectedFace | null
+  isIdle:              boolean
+  isCameraReturning:   boolean
 
-  setHoveredFaceId: (id: string | null) => void
-  setSelectedFace:  (face: SelectedFace | null) => void
-  setIdle:          (idle: boolean) => void
+  setHoveredFaceId:     (id: string | null) => void
+  setSelectedFace:     (face: SelectedFace | null) => void
+  setIdle:             (idle: boolean) => void
+  setIsCameraReturning: (v: boolean) => void
 }
 
 export const usePortfolioStore = create<PortfolioStore>((set) => ({
-  hoveredFaceId: null,
-  selectedFace:  null,
-  isIdle:        false,
+  hoveredFaceId:     null,
+  selectedFace:      null,
+  isIdle:            false,
+  isCameraReturning: false,
 
-  setHoveredFaceId: (id)   => set({ hoveredFaceId: id }),
-  setSelectedFace:  (face) => set({ selectedFace: face }),
-  setIdle:          (idle) => set({ isIdle: idle }),
+  setHoveredFaceId:      (id)   => set({ hoveredFaceId: id }),
+  setSelectedFace:       (face) => set({ selectedFace: face }),
+  setIdle:               (idle) => set({ isIdle: idle }),
+  setIsCameraReturning:  (v)    => set({ isCameraReturning: v }),
 }))
