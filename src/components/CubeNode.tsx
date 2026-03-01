@@ -5,7 +5,7 @@ import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 
 import type { FaceDirection } from '@/data/projects'
-import { FACE_COLORS, getFaceProject } from '@/data/projects'
+import { FACE_COLORS, GRID_SIZE, getFaceProject } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
 
@@ -69,24 +69,38 @@ function hexToVec3(hex: string): THREE.Vector3 {
   return new THREE.Vector3(c.r, c.g, c.b)
 }
 
-// Shared colour values (read-only, cloned per instance below)
-const COLOUR_BASE = {
-  '+x': hexToVec3(FACE_COLORS['+x']),
-  '-x': hexToVec3(FACE_COLORS['-x']),
-  '+y': hexToVec3(FACE_COLORS['+y']),
-  '-y': hexToVec3(FACE_COLORS['-y']),
-  '+z': hexToVec3(FACE_COLORS['+z']),
-  '-z': hexToVec3(FACE_COLORS['-z']),
+function isOuterFace(
+  gridX: number,
+  gridY: number,
+  gridZ: number,
+  faceDir: FaceDirection,
+): boolean {
+  const max = GRID_SIZE - 1
+  switch (faceDir) {
+    case '+x': return gridX === max
+    case '-x': return gridX === 0
+    case '+y': return gridY === max
+    case '-y': return gridY === 0
+    case '+z': return gridZ === max
+    case '-z': return gridZ === 0
+    default:   return false
+  }
 }
+
+// Shared colour values (read-only, cloned per instance below)
+const INNER_GREY = hexToVec3('#202124')
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface CubeNodeProps {
   nodeIndex: number
+  gridX: number
+  gridY: number
+  gridZ: number
   position:  [number, number, number]
 }
 
-export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
+export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeProps) {
   const { selectedFace, setHoveredFaceId, setSelectedFace } = usePortfolioStore()
   const anySelected = selectedFace !== null
   const isSelected  = selectedFace?.faceProject.nodeIndex === nodeIndex
@@ -112,15 +126,27 @@ export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
 
   // Per-node shader uniforms (cloned so each node is independent)
   const uniforms = useMemo(() => ({
-    u_px: { value: COLOUR_BASE['+x'].clone() },
-    u_nx: { value: COLOUR_BASE['-x'].clone() },
-    u_py: { value: COLOUR_BASE['+y'].clone() },
-    u_ny: { value: COLOUR_BASE['-y'].clone() },
-    u_pz: { value: COLOUR_BASE['+z'].clone() },
-    u_nz: { value: COLOUR_BASE['-z'].clone() },
+    u_px: {
+      value: (gridX === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+x']) : INNER_GREY).clone(),
+    },
+    u_nx: {
+      value: (gridX === 0 ? hexToVec3(FACE_COLORS['-x']) : INNER_GREY).clone(),
+    },
+    u_py: {
+      value: (gridY === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+y']) : INNER_GREY).clone(),
+    },
+    u_ny: {
+      value: (gridY === 0 ? hexToVec3(FACE_COLORS['-y']) : INNER_GREY).clone(),
+    },
+    u_pz: {
+      value: (gridZ === GRID_SIZE - 1 ? hexToVec3(FACE_COLORS['+z']) : INNER_GREY).clone(),
+    },
+    u_nz: {
+      value: (gridZ === 0 ? hexToVec3(FACE_COLORS['-z']) : INNER_GREY).clone(),
+    },
     u_hover:   { value: 0 },
     u_opacity: { value: 1 },
-  }), [])
+  }), [gridX, gridY, gridZ])
 
   useFrame(() => {
     uniforms.u_hover.value   = hoverSp.hover.get()
@@ -134,11 +160,12 @@ export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
     if (anySelected) return
     if (!e.face) return
     const faceDir = normalToFaceDir(e.face.normal)
+    if (!isOuterFace(gridX, gridY, gridZ, faceDir)) return
     setHoveredFaceId(`${nodeIndex}-${faceDir}`)
     hoverSp.hover.start(1)
     hoverSp.scale.start(1.06)
     document.body.style.cursor = 'pointer'
-  }, [anySelected, nodeIndex, setHoveredFaceId, hoverSp])
+  }, [anySelected, gridX, gridY, gridZ, nodeIndex, setHoveredFaceId, hoverSp])
 
   const handlePointerOut = useCallback(() => {
     setHoveredFaceId(null)
@@ -152,6 +179,7 @@ export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
     if (!e.face) return
 
     const faceDir    = normalToFaceDir(e.face.normal)
+    if (!isOuterFace(gridX, gridY, gridZ, faceDir)) return
     const worldNorm  = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize()
     const worldPos   = new THREE.Vector3()
     e.object.getWorldPosition(worldPos)
@@ -168,7 +196,7 @@ export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
     hoverSp.hover.start(0)
     hoverSp.scale.start(1)
     document.body.style.cursor = 'default'
-  }, [nodeIndex, selectedFace, setSelectedFace, setHoveredFaceId, hoverSp])
+  }, [gridX, gridY, gridZ, nodeIndex, selectedFace, setSelectedFace, setHoveredFaceId, hoverSp])
 
   return (
     <animated.group position={position} scale={intro.scale}>

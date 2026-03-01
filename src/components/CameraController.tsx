@@ -36,38 +36,30 @@ export function CameraController({ controlsRef }: Props) {
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0))
   const isFocused = useRef(false)
 
-  // Default (unfocused) camera position — matches App.tsx initial camera
-  const DEFAULT_POS    = new THREE.Vector3(3.6, 3.2, 4.5)
-  const DEFAULT_LOOKAT = new THREE.Vector3(0, 0, 0)
-
   useEffect(() => {
     if (selectedFace) {
       const [nx, ny, nz] = selectedFace.worldNormal
       const [px, py, pz] = selectedFace.worldPos
       const faceDir = selectedFace.faceProject.faceDir
       const right = FACE_RIGHT[faceDir] ?? [1, 0, 0]
+      const normal = new THREE.Vector3(nx, ny, nz).normalize()
+      const rightVec = new THREE.Vector3(right[0], right[1], right[2]).normalize()
+      const focusPoint = new THREE.Vector3(px, py, pz)
 
-      // Camera sits directly in front of the clicked face
-      targetPos.current.set(
-        px + nx * FOCUS_DIST,
-        py + ny * FOCUS_DIST,
-        pz + nz * FOCUS_DIST,
-      )
-      // Shift lookAt so the node appears on the LEFT (x≈0.3) of the screen
-      targetLookAt.current.set(
-        px + right[0] * LOOKAT_SHIFT,
-        py + right[1] * LOOKAT_SHIFT,
-        pz + right[2] * LOOKAT_SHIFT,
-      )
+      // Camera sits directly in front of the clicked face, with a sideways
+      // offset so the node lands around the left-centre of the screen.
+      targetPos.current
+        .copy(focusPoint)
+        .addScaledVector(normal, FOCUS_DIST)
+        .addScaledVector(rightVec, LOOKAT_SHIFT)
+
+      // Always look at the centre of the selected node so it stays vertically centred.
+      targetLookAt.current.copy(focusPoint)
       isFocused.current = true
-      if (controlsRef.current) controlsRef.current.enabled = false
     } else {
-      // Return to default view
-      targetPos.current.copy(DEFAULT_POS)
-      targetLookAt.current.copy(DEFAULT_LOOKAT)
       isFocused.current = false
     }
-  }, [selectedFace, controlsRef])
+  }, [selectedFace])
 
   // Escape key to deselect
   useEffect(() => {
@@ -82,20 +74,13 @@ export function CameraController({ controlsRef }: Props) {
   }, [setSelectedFace])
 
   useFrame((_, delta) => {
+    if (!isFocused.current) return
+
     const alpha = Math.min(1, delta * LERP_SPEED)
 
     camera.position.lerp(targetPos.current, alpha)
     currentLookAt.current.lerp(targetLookAt.current, alpha)
     camera.lookAt(currentLookAt.current)
-
-    // Once back at default, re-enable OrbitControls
-    if (!isFocused.current && controlsRef.current && !controlsRef.current.enabled) {
-      const arrivedPos    = camera.position.distanceTo(DEFAULT_POS)    < 0.08
-      const arrivedLook   = currentLookAt.current.distanceTo(DEFAULT_LOOKAT) < 0.08
-      if (arrivedPos && arrivedLook) {
-        controlsRef.current.enabled = true
-      }
-    }
   })
 
   return null

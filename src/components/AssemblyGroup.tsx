@@ -77,6 +77,9 @@ export function AssemblyGroup() {
         <CubeNode
           key={node.nodeIndex}
           nodeIndex={node.nodeIndex}
+          gridX={node.gridX}
+          gridY={node.gridY}
+          gridZ={node.gridZ}
           position={node.position}
         />
       ))}

@@ -18,8 +18,8 @@ function SceneContent() {
 
   return (
     <>
-      {/* Background — dark grey; gradient handled in CSS on the wrapper div */}
-      <color attach="background" args={['#111111']} />
+      {/* Scene background */}
+      <color attach="background" args={['#4C4B51']} />
 
       <SceneLighting />
 
@@ -51,7 +51,7 @@ export default function App() {
     <div style={{
       width: '100vw',
       height: '100vh',
-      background: 'radial-gradient(ellipse at 50% 40%, #2a2a2a 0%, #111111 45%, #000000 100%)',
+      background: '#4C4B51',
     }}>
       <Canvas
         // High-angle corner view: see top, front, and right faces simultaneously
