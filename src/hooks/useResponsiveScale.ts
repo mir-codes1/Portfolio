@@ -9,13 +9,13 @@ function computeScale(vw: number, vh: number): number {
     // Desktop: assembly radius ≤ min(vw, vh) × 0.333 in screen space.
     // With FOV=45 and camera at z=8, 1 world unit ≈ vh/8 px (rough).
     // We just drive a world-space scale factor.
-    return Math.min(1.0, minDim / 900)
+    return Math.min(1.1, minDim / 800)
   }
-  // Tablet / mobile: occupy ~70 % of shortest dimension.
-  // Target diameter in screen-space = minDim × 0.70.
+  // Tablet / mobile: occupy ~80 % of shortest dimension.
+  // Target diameter in screen-space = minDim × 0.80.
   // Diameter in world units ≈ ASSEMBLY_RADIUS * 2 at scale 1.
-  const targetWorldDiameter = (minDim * 0.70) / (vh / 8)
-  return Math.max(0.3, Math.min(1.0, targetWorldDiameter / (ASSEMBLY_RADIUS * 2)))
+  const targetWorldDiameter = (minDim * 0.80) / (vh / 8)
+  return Math.max(0.4, Math.min(1.1, targetWorldDiameter / (ASSEMBLY_RADIUS * 2)))
 }
 
 let debounceTimer: ReturnType<typeof setTimeout>

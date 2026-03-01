@@ -84,22 +84,22 @@ const fragmentShader = /* glsl */`
     float t = clamp(r / maxR, 0.0, 1.0);
     vec3 col = mix(centerCol, edgeCol, t);
 
-    // Fine grain for material richness
+    // Fine grain for material richness (kept subtle)
     float g = grain(vUv * 20.0) * 0.6 + grain(vUv * 7.0) * 0.4;
-    col *= mix(0.78, 1.02, g);
+    col *= mix(0.90, 1.03, g);
 
     // Hover brightening
     col = mix(col, col + vec3(0.22), u_hover);
 
     // Specular "glass" streak along a fixed diagonal in UV space
     float diag = (vUv.x + vUv.y) * 0.7;
-    float glassBand = smoothstep(0.35, 0.0, abs(diag - 0.35));
-    float glassStrength = glassBand * 0.12;
+    float glassBand = smoothstep(0.30, 0.0, abs(diag - 0.30));
+    float glassStrength = glassBand * 0.06;
     col = mix(col, vec3(1.0), glassStrength);
 
     // Rounded-rect stencil with a dark studio background "gap"
-    float gap = 0.06;
-    float feather = 0.02;
+    float gap = 0.03;
+    float feather = 0.015;
     vec2 innerMin = vec2(gap, gap);
     vec2 innerMax = vec2(1.0 - gap, 1.0 - gap);
 
@@ -113,7 +113,7 @@ const fragmentShader = /* glsl */`
     // Rounded corners via distance to the clipped UV (rounded-rect SDF)
     vec2 uvClamped = clamp(vUv, innerMin, innerMax);
     float cornerDist = length(vUv - uvClamped);
-    float radius = 0.14;
+    float radius = 0.22;
     float cornerMask = smoothstep(radius, radius - feather, cornerDist);
 
     float mask = rectMask * cornerMask;
