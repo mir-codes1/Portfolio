@@ -1,181 +1,193 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { RoundedBox, Text } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 
-import type { Project, FaceDirection } from '@/data/projects'
-import { getOuterFaces } from '@/data/projects'
+import type { FaceDirection } from '@/data/projects'
+import { FACE_COLORS, getFaceProject } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
-import { useProceduralSandstoneTextures } from '@/hooks/useSandstoneTextures'
-import { getGlyphTexture } from '@/utils/glyphTextures'
-import { ExpandedCard } from './ExpandedCard'
 
-// Face direction → local normal and rotation for glyph planes
-const FACE_CONFIG: Record<FaceDirection, { normal: [number, number, number]; rotation: [number, number, number] }> = {
-  '+x': { normal: [1, 0, 0],  rotation: [0,  Math.PI / 2, 0] },
-  '-x': { normal: [-1, 0, 0], rotation: [0, -Math.PI / 2, 0] },
-  '+y': { normal: [0, 1, 0],  rotation: [-Math.PI / 2, 0, 0] },
-  '-y': { normal: [0, -1, 0], rotation: [Math.PI / 2, 0, 0] },
-  '+z': { normal: [0, 0, 1],  rotation: [0, 0, 0] },
-  '-z': { normal: [0, 0, -1], rotation: [0, Math.PI, 0] },
+// ─── Shader: per-face flat colouring + procedural grain ──────────────────────
+
+const vertexShader = /* glsl */`
+  varying vec3 vLocalNormal;
+  varying vec2 vUv;
+  void main() {
+    vLocalNormal = normal;
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const fragmentShader = /* glsl */`
+  uniform vec3 u_px; uniform vec3 u_nx;
+  uniform vec3 u_py; uniform vec3 u_ny;
+  uniform vec3 u_pz; uniform vec3 u_nz;
+  uniform float u_hover;
+  uniform float u_opacity;
+  varying vec3 vLocalNormal;
+  varying vec2 vUv;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  float grain(vec2 uv) {
+    vec2 i = floor(uv); vec2 f = fract(uv);
+    float a = hash(i), b = hash(i+vec2(1,0)), c = hash(i+vec2(0,1)), d = hash(i+vec2(1,1));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
+  }
+
+  void main() {
+    vec3 n = normalize(vLocalNormal);
+    vec3 an = abs(n);
+    vec3 col;
+    if (an.x >= an.y && an.x >= an.z) col = n.x > 0.0 ? u_px : u_nx;
+    else if (an.y >= an.x && an.y >= an.z) col = n.y > 0.0 ? u_py : u_ny;
+    else col = n.z > 0.0 ? u_pz : u_nz;
+
+    float g = grain(vUv * 20.0) * 0.6 + grain(vUv * 7.0) * 0.4;
+    col *= mix(0.68, 1.0, g);
+    col = mix(col, col + vec3(0.20), u_hover);
+    gl_FragColor = vec4(col, u_opacity);
+  }
+`
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalToFaceDir(n: THREE.Vector3): FaceDirection {
+  const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z)
+  if (ax >= ay && ax >= az) return n.x > 0 ? '+x' : '-x'
+  if (ay >= ax && ay >= az) return n.y > 0 ? '+y' : '-y'
+  return n.z > 0 ? '+z' : '-z'
 }
+
+function hexToVec3(hex: string): THREE.Vector3 {
+  const c = new THREE.Color(hex)
+  return new THREE.Vector3(c.r, c.g, c.b)
+}
+
+// Shared colour values (read-only, cloned per instance below)
+const COLOUR_BASE = {
+  '+x': hexToVec3(FACE_COLORS['+x']),
+  '-x': hexToVec3(FACE_COLORS['-x']),
+  '+y': hexToVec3(FACE_COLORS['+y']),
+  '-y': hexToVec3(FACE_COLORS['-y']),
+  '+z': hexToVec3(FACE_COLORS['+z']),
+  '-z': hexToVec3(FACE_COLORS['-z']),
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface CubeNodeProps {
-  gridX: number  // 0, 1, 2
-  gridY: number
-  gridZ: number
-  position: [number, number, number]
-  project: Project
+  nodeIndex: number
+  position:  [number, number, number]
 }
 
-const GLYPH_OFFSET = 0.51  // slightly in front of face (face at ±0.5)
+export function CubeNode({ nodeIndex, position }: CubeNodeProps) {
+  const { selectedFace, setHoveredFaceId, setSelectedFace } = usePortfolioStore()
+  const anySelected = selectedFace !== null
+  const isSelected  = selectedFace?.faceProject.nodeIndex === nodeIndex
 
-export function CubeNode({ gridX, gridY, gridZ, position, project }: CubeNodeProps) {
-  const matRef = useRef<THREE.MeshStandardMaterial>(null)
+  // Intro spring — stagger by nodeIndex for bouncy sequential appearance
+  const x = nodeIndex % 2
+  const y = Math.floor(nodeIndex / 2) % 2
+  const z = Math.floor(nodeIndex / 4)
+  const intro = useNodeIntroSpring(x, y, z)
 
-  const { hoveredNodeId, expandedNodeId, setHoveredNodeId, setExpandedNodeId } = usePortfolioStore()
-  const isHovered   = hoveredNodeId  === project.id
-  const isExpanded  = expandedNodeId === project.id
-  const anyExpanded = expandedNodeId !== null
-  const isSibling   = anyExpanded && !isExpanded
-
-  // Procedural sandstone textures (swap to useTexture once PNGs are placed in /public/textures/)
-  const [diffuse, normal, ao] = useProceduralSandstoneTextures()
-
-  // Outer faces for this grid position
-  const outerFaces = useMemo(() => getOuterFaces(gridX, gridY, gridZ), [gridX, gridY, gridZ])
-
-  // ── Intro animation ──────────────────────────────────────────────────────────
-  const intro = useNodeIntroSpring(gridX, gridY, gridZ)
-
-  // ── Hover springs ────────────────────────────────────────────────────────────
-  const [hoverSpring] = useSpring(() => ({
-    emissiveIntensity: 0,
-    scale: 1,
-    config: { tension: 200, friction: 18 },
+  // Hover spring
+  const [hoverSp] = useSpring(() => ({
+    hover: 0, scale: 1,
+    config: { tension: 220, friction: 18 },
   }), [])
 
-  // Imperatively update spring targets each render (avoids re-creating the spring)
-  hoverSpring.emissiveIntensity.start(isHovered && !anyExpanded ? 0.25 : 0)
-  hoverSpring.scale.start(isHovered && !anyExpanded ? 1.04 : 1.0)
-
-  // ── Expand / sibling springs ─────────────────────────────────────────────────
-  const [expandSpring] = useSpring(() => ({
-    scale: 1,
+  // Sibling fade spring
+  const [fadeSp] = useSpring(() => ({
     opacity: 1,
     config: { tension: 160, friction: 22 },
   }), [])
+  fadeSp.opacity.start(anySelected && !isSelected ? 0.18 : 1)
 
-  expandSpring.scale.start(isExpanded ? 8 : 1)
-  expandSpring.opacity.start(isSibling ? 0 : 1)
+  // Per-node shader uniforms (cloned so each node is independent)
+  const uniforms = useMemo(() => ({
+    u_px: { value: COLOUR_BASE['+x'].clone() },
+    u_nx: { value: COLOUR_BASE['-x'].clone() },
+    u_py: { value: COLOUR_BASE['+y'].clone() },
+    u_ny: { value: COLOUR_BASE['-y'].clone() },
+    u_pz: { value: COLOUR_BASE['+z'].clone() },
+    u_nz: { value: COLOUR_BASE['-z'].clone() },
+    u_hover:   { value: 0 },
+    u_opacity: { value: 1 },
+  }), [])
 
-  // ── Sync emissive intensity each frame ───────────────────────────────────────
   useFrame(() => {
-    if (matRef.current) {
-      matRef.current.emissiveIntensity = hoverSpring.emissiveIntensity.get()
-      matRef.current.opacity = expandSpring.opacity.get()
-    }
+    uniforms.u_hover.value   = hoverSp.hover.get()
+    uniforms.u_opacity.value = fadeSp.opacity.get()
   })
 
-  // ── Event handlers ───────────────────────────────────────────────────────────
-  const handlePointerOver = useCallback((e: { stopPropagation: () => void }) => {
+  // ── Pointer handlers ─────────────────────────────────────────────────────────
+
+  const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
-    if (!anyExpanded) {
-      setHoveredNodeId(project.id)
-      document.body.style.cursor = 'pointer'
-    }
-  }, [anyExpanded, setHoveredNodeId, project.id])
+    if (anySelected) return
+    if (!e.face) return
+    const faceDir = normalToFaceDir(e.face.normal)
+    setHoveredFaceId(`${nodeIndex}-${faceDir}`)
+    hoverSp.hover.start(1)
+    hoverSp.scale.start(1.06)
+    document.body.style.cursor = 'pointer'
+  }, [anySelected, nodeIndex, setHoveredFaceId, hoverSp])
 
   const handlePointerOut = useCallback(() => {
-    setHoveredNodeId(null)
+    setHoveredFaceId(null)
+    hoverSp.hover.start(0)
+    hoverSp.scale.start(1)
     document.body.style.cursor = 'default'
-  }, [setHoveredNodeId])
+  }, [setHoveredFaceId, hoverSp])
 
-  const handleClick = useCallback((e: { stopPropagation: () => void }) => {
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
-    setHoveredNodeId(null)
-    document.body.style.cursor = 'default'
-    setExpandedNodeId(isExpanded ? null : project.id)
-  }, [isExpanded, project.id, setHoveredNodeId, setExpandedNodeId])
+    if (!e.face) return
 
-  const handleClose = useCallback(() => setExpandedNodeId(null), [setExpandedNodeId])
+    const faceDir    = normalToFaceDir(e.face.normal)
+    const worldNorm  = e.face.normal.clone().transformDirection(e.object.matrixWorld).normalize()
+    const worldPos   = new THREE.Vector3()
+    e.object.getWorldPosition(worldPos)
+
+    const faceProject = getFaceProject(nodeIndex, faceDir)
+    const alreadySelected = selectedFace?.faceProject.id === faceProject.id
+
+    setSelectedFace(alreadySelected ? null : {
+      faceProject,
+      worldPos:    [worldPos.x, worldPos.y, worldPos.z],
+      worldNormal: [worldNorm.x, worldNorm.y, worldNorm.z],
+    })
+    setHoveredFaceId(null)
+    hoverSp.hover.start(0)
+    hoverSp.scale.start(1)
+    document.body.style.cursor = 'default'
+  }, [nodeIndex, selectedFace, setSelectedFace, setHoveredFaceId, hoverSp])
 
   return (
     <animated.group position={position} scale={intro.scale}>
-      <animated.group scale={expandSpring.scale}>
-        <animated.group scale={hoverSpring.scale}>
-          <RoundedBox
-            args={[1, 1, 1]}
-            radius={0.04}
-            smoothness={4}
-            castShadow
-            receiveShadow
-            onPointerOver={handlePointerOver}
-            onPointerOut={handlePointerOut}
-            onClick={handleClick}
-          >
-            <meshStandardMaterial
-              ref={matRef}
-              map={diffuse}
-              normalMap={normal}
-              aoMap={ao}
-              normalScale={new THREE.Vector2(0.4, 0.4)}
-              color="#E8DDD0"
-              roughness={0.85}
-              metalness={0}
-              emissive={new THREE.Color('#FFFFFF')}
-              emissiveIntensity={0}
-              transparent
-            />
-          </RoundedBox>
-
-          {/* Glyph planes on each outer face */}
-          {outerFaces.map((face) => {
-            const cfg = FACE_CONFIG[face]
-            const glyphTex = getGlyphTexture(project.category)
-            return (
-              <mesh
-                key={face}
-                position={cfg.normal.map((n) => n * GLYPH_OFFSET) as [number, number, number]}
-                rotation={cfg.rotation}
-              >
-                <planeGeometry args={[0.7, 0.7]} />
-                <meshStandardMaterial
-                  map={glyphTex}
-                  color="#FFFFFF"
-                  roughness={0.3}
-                  metalness={0}
-                  emissive={new THREE.Color('#FFFFFF')}
-                  emissiveIntensity={0.15}
-                  transparent
-                  alphaTest={0.05}
-                />
-              </mesh>
-            )
-          })}
-
-          {/* 3D label — visible only when expanded */}
-          {isExpanded && (
-            <Text
-              position={[0, 0.55, 0]}
-              fontSize={0.09}
-              color="#FFFFFF"
-              maxWidth={0.9}
-              textAlign="center"
-              anchorX="center"
-              anchorY="middle"
-            >
-              {project.label}
-            </Text>
-          )}
-        </animated.group>
-
-        {/* Rich card rendered outside hover-scale group */}
-        {isExpanded && (
-          <ExpandedCard project={project} onClose={handleClose} />
-        )}
+      <animated.group scale={hoverSp.scale}>
+        <mesh
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          onClick={handleClick}
+          castShadow={false}
+          receiveShadow={false}
+        >
+          <boxGeometry args={[1, 1, 1]} />
+          <shaderMaterial
+            vertexShader={vertexShader}
+            fragmentShader={fragmentShader}
+            uniforms={uniforms}
+            transparent
+          />
+        </mesh>
       </animated.group>
     </animated.group>
   )

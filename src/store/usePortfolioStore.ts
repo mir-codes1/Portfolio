@@ -1,27 +1,28 @@
 import { create } from 'zustand'
+import type { FaceProject } from '@/data/projects'
 
-type CameraState = 'idle' | 'transitioning'
+export interface SelectedFace {
+  faceProject: FaceProject
+  worldPos:    [number, number, number]   // node centre in world space
+  worldNormal: [number, number, number]   // face normal in world space
+}
 
 interface PortfolioStore {
-  hoveredNodeId: string | null
-  expandedNodeId: string | null
-  cameraState: CameraState
-  isIdle: boolean
+  hoveredFaceId:  string | null    // `${nodeIndex}-${faceDir}`
+  selectedFace:   SelectedFace | null
+  isIdle:         boolean
 
-  setHoveredNodeId: (id: string | null) => void
-  setExpandedNodeId: (id: string | null) => void
-  setCameraState: (state: CameraState) => void
-  setIdle: (idle: boolean) => void
+  setHoveredFaceId: (id: string | null) => void
+  setSelectedFace:  (face: SelectedFace | null) => void
+  setIdle:          (idle: boolean) => void
 }
 
 export const usePortfolioStore = create<PortfolioStore>((set) => ({
-  hoveredNodeId: null,
-  expandedNodeId: null,
-  cameraState: 'idle',
-  isIdle: false,
+  hoveredFaceId: null,
+  selectedFace:  null,
+  isIdle:        false,
 
-  setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
-  setExpandedNodeId: (id) => set({ expandedNodeId: id }),
-  setCameraState: (state) => set({ cameraState: state }),
-  setIdle: (idle) => set({ isIdle: idle }),
+  setHoveredFaceId: (id)   => set({ hoveredFaceId: id }),
+  setSelectedFace:  (face) => set({ selectedFace: face }),
+  setIdle:          (idle) => set({ isIdle: idle }),
 }))
