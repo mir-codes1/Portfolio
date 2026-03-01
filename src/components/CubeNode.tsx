@@ -84,9 +84,12 @@ const fragmentShader = /* glsl */`
     float t = clamp(r / maxR, 0.0, 1.0);
     vec3 col = mix(centerCol, edgeCol, t);
 
-    // Fine grain for material richness (kept subtle)
-    float g = grain(vUv * 20.0) * 0.6 + grain(vUv * 7.0) * 0.4;
-    col *= mix(0.90, 1.03, g);
+    // Satin-style anisotropic sheen: directional, very soft variation
+    vec2 satinUv = vec2(vUv.x * 40.0, 0.5);
+    float s1 = grain(satinUv);
+    float s2 = grain(satinUv + vec2(0.0, 3.1));
+    float satin = (s1 + s2) * 0.5;
+    col *= mix(0.94, 1.04, satin);
 
     // Hover brightening
     col = mix(col, col + vec3(0.22), u_hover);

@@ -7,7 +7,7 @@ import { useResponsiveScale } from '@/hooks/useResponsiveScale'
 import { GRID_SIZE } from '@/data/projects'
 import { CubeNode } from './CubeNode'
 
-const STEP = 1.06   // nodeSize (1.0) + gap (0.06)
+const STEP = 1.03   // nodeSize (1.0) + gap (0.03)
 const HALF = (GRID_SIZE - 1) / 2   // 0.5 — centres the assembly at origin
 
 interface NodeDef {
