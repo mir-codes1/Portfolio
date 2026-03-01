@@ -101,8 +101,8 @@ const fragmentShader = /* glsl */`
     col = mix(col, vec3(1.0), glassStrength);
 
     // Rounded-rect stencil with a dark studio background "gap"
-    float gap = 0.03;
-    float feather = 0.015;
+    float gap = 0.015;
+    float feather = 0.010;
     vec2 innerMin = vec2(gap, gap);
     vec2 innerMax = vec2(1.0 - gap, 1.0 - gap);
 

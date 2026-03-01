@@ -22,7 +22,7 @@ const FACE_RIGHT: Record<string, [number, number, number]> = {
   '-y': [-1, 0,  0],
 }
 
-type CameraMode = 'idle' | 'focus' | 'return'
+type CameraMode = 'idle' | 'focus'
 
 interface Props {
   controlsRef: MutableRefObject<OrbitControlsImpl | null>
@@ -35,14 +35,11 @@ export function CameraController({ controlsRef }: Props) {
   // Lerp targets, updated when selectedFace changes
   const targetPos     = useRef(new THREE.Vector3(3.6, 3.2, 4.5))
   const targetLookAt  = useRef(new THREE.Vector3(0, 0, 0))
-  const targetUp      = useRef(new THREE.Vector3(0, 1, 0))
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0))
-  const currentUp     = useRef(new THREE.Vector3(0, 1, 0))
   const mode          = useRef<CameraMode>('idle')
 
   const DEFAULT_POS    = new THREE.Vector3(3.6, 3.2, 4.5)
   const DEFAULT_LOOKAT = new THREE.Vector3(0, 0, 0)
-  const DEFAULT_UP     = new THREE.Vector3(0, 1, 0)
 
   useEffect(() => {
     if (selectedFace) {
@@ -53,7 +50,6 @@ export function CameraController({ controlsRef }: Props) {
 
       const normal   = new THREE.Vector3(nx, ny, nz).normalize()
       const rightVec = new THREE.Vector3(right[0], right[1], right[2]).normalize()
-      const upVec    = new THREE.Vector3().crossVectors(normal, rightVec).normalize()
       const focusPoint = new THREE.Vector3(px, py, pz)
 
       // Camera sits directly in front of the clicked face, with a sideways
@@ -64,18 +60,25 @@ export function CameraController({ controlsRef }: Props) {
         .addScaledVector(rightVec, LOOKAT_SHIFT)
 
       // Look straight at the centre of the node, and align camera "up"
-      // with the face's up so the sticker is never tilted.
+      // with a stable world up so the sticker is never rolled.
       targetLookAt.current.copy(focusPoint)
-      targetUp.current.copy(upVec)
       mode.current = 'focus'
     } else {
-      // Return smoothly to the default overview when deselecting.
+      // Immediately restore the default overview and relinquish control
+      // back to OrbitControls so the user has full freedom.
+      mode.current = 'idle'
       targetPos.current.copy(DEFAULT_POS)
       targetLookAt.current.copy(DEFAULT_LOOKAT)
-      targetUp.current.copy(DEFAULT_UP)
-      mode.current = 'return'
+
+      if (controlsRef.current) {
+        controlsRef.current.reset()
+      } else {
+        camera.position.copy(DEFAULT_POS)
+        camera.up.set(0, 1, 0)
+        camera.lookAt(DEFAULT_LOOKAT)
+      }
     }
-  }, [selectedFace])
+  }, [selectedFace, camera, controlsRef])
 
   // Escape key to deselect
   useEffect(() => {
@@ -96,18 +99,8 @@ export function CameraController({ controlsRef }: Props) {
 
     camera.position.lerp(targetPos.current, alpha)
     currentLookAt.current.lerp(targetLookAt.current, alpha)
-    currentUp.current.lerp(targetUp.current, alpha)
-
-    camera.up.copy(currentUp.current)
+    camera.up.set(0, 1, 0)
     camera.lookAt(currentLookAt.current)
-
-    if (mode.current === 'return') {
-      const arrivedPos  = camera.position.distanceTo(DEFAULT_POS) < 0.05
-      const arrivedLook = currentLookAt.current.distanceTo(DEFAULT_LOOKAT) < 0.05
-      if (arrivedPos && arrivedLook) {
-        mode.current = 'idle'
-      }
-    }
   })
 
   return null
