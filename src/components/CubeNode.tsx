@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useLoader } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
@@ -29,6 +29,7 @@ const fragmentShader = /* glsl */`
   uniform vec3 u_pz_center; uniform vec3 u_pz_edge;
   uniform vec3 u_nz_center; uniform vec3 u_nz_edge;
   uniform vec3 u_bg;
+  uniform sampler2D u_satinMap;
   uniform float u_hover;
   uniform float u_opacity;
   varying vec3 vLocalNormal;
@@ -84,12 +85,11 @@ const fragmentShader = /* glsl */`
     float t = clamp(r / maxR, 0.0, 1.0);
     vec3 col = mix(centerCol, edgeCol, t);
 
-    // Satin-style anisotropic sheen: directional, very soft variation
-    vec2 satinUv = vec2(vUv.x * 40.0, 0.5);
-    float s1 = grain(satinUv);
-    float s2 = grain(satinUv + vec2(0.0, 3.1));
-    float satin = (s1 + s2) * 0.5;
-    col *= mix(0.94, 1.04, satin);
+    // Satin fabric texture sampled from external map; tinted by our gradient.
+    vec2 tiledUv = vUv * 4.0;
+    vec3 satinSample = texture2D(u_satinMap, tiledUv).rgb;
+    float satinLuma = dot(satinSample, vec3(0.299, 0.587, 0.114));
+    col *= mix(0.90, 1.10, satinLuma);
 
     // Hover brightening
     col = mix(col, col + vec3(0.22), u_hover);
@@ -196,6 +196,11 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
   const anySelected = selectedFace !== null
   const isSelected  = selectedFace?.faceProject.nodeIndex === nodeIndex
 
+  const satinTexture = useLoader(THREE.TextureLoader, '/textures/satin_strength.png')
+  satinTexture.wrapS = THREE.RepeatWrapping
+  satinTexture.wrapT = THREE.RepeatWrapping
+  satinTexture.anisotropy = 8
+
   // Intro spring — stagger by nodeIndex for bouncy sequential appearance
   const x = nodeIndex % 2
   const y = Math.floor(nodeIndex / 2) % 2
@@ -253,10 +258,11 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
     u_nz_edge: {
       value: (gridZ === 0 ? FACE_EDGE['-z'] : INNER_GREY).clone(),
     },
+    u_satinMap: { value: satinTexture },
     u_bg:      { value: GAP_BG.clone() },
     u_hover:   { value: 0 },
     u_opacity: { value: 1 },
-  }), [gridX, gridY, gridZ])
+  }), [gridX, gridY, gridZ, satinTexture])
 
   useFrame(() => {
     uniforms.u_hover.value   = hoverSp.hover.get()
