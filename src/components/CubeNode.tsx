@@ -5,7 +5,7 @@ import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 
 import type { FaceDirection } from '@/data/projects'
-import { GRID_SIZE, getFaceProject } from '@/data/projects'
+import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z, getFaceProject } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
 
@@ -101,8 +101,8 @@ const fragmentShader = /* glsl */`
     col = mix(col, vec3(1.0), glassStrength);
 
     // Rounded-rect stencil with a dark studio background "gap"
-    float gap = 0.015;
-    float feather = 0.010;
+    float gap = 0.03;
+    float feather = 0.015;
     vec2 innerMin = vec2(gap, gap);
     vec2 innerMax = vec2(1.0 - gap, 1.0 - gap);
 
@@ -146,13 +146,15 @@ function isOuterFace(
   gridZ: number,
   faceDir: FaceDirection,
 ): boolean {
-  const max = GRID_SIZE - 1
+  const maxX = GRID_SIZE_X - 1
+  const maxY = GRID_SIZE_Y - 1
+  const maxZ = GRID_SIZE_Z - 1
   switch (faceDir) {
-    case '+x': return gridX === max
+    case '+x': return gridX === maxX
     case '-x': return gridX === 0
-    case '+y': return gridY === max
+    case '+y': return gridY === maxY
     case '-y': return gridY === 0
-    case '+z': return gridZ === max
+    case '+z': return gridZ === maxZ
     case '-z': return gridZ === 0
     default:   return false
   }
@@ -202,10 +204,7 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
   satinTexture.anisotropy = 8
 
   // Intro spring — stagger by nodeIndex for bouncy sequential appearance
-  const x = nodeIndex % 2
-  const y = Math.floor(nodeIndex / 2) % 2
-  const z = Math.floor(nodeIndex / 4)
-  const intro = useNodeIntroSpring(x, y, z)
+  const intro = useNodeIntroSpring(nodeIndex)
 
   // Hover spring
   const [hoverSp] = useSpring(() => ({
@@ -223,10 +222,10 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
   // Per-node shader uniforms (cloned so each node is independent)
   const uniforms = useMemo(() => ({
     u_px_center: {
-      value: (gridX === GRID_SIZE - 1 ? FACE_CENTER['+x'] : INNER_GREY).clone(),
+      value: (gridX === GRID_SIZE_X - 1 ? FACE_CENTER['+x'] : INNER_GREY).clone(),
     },
     u_px_edge: {
-      value: (gridX === GRID_SIZE - 1 ? FACE_EDGE['+x'] : INNER_GREY).clone(),
+      value: (gridX === GRID_SIZE_X - 1 ? FACE_EDGE['+x'] : INNER_GREY).clone(),
     },
     u_nx_center: {
       value: (gridX === 0 ? FACE_CENTER['-x'] : INNER_GREY).clone(),
@@ -235,10 +234,10 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
       value: (gridX === 0 ? FACE_EDGE['-x'] : INNER_GREY).clone(),
     },
     u_py_center: {
-      value: (gridY === GRID_SIZE - 1 ? FACE_CENTER['+y'] : INNER_GREY).clone(),
+      value: (gridY === GRID_SIZE_Y - 1 ? FACE_CENTER['+y'] : INNER_GREY).clone(),
     },
     u_py_edge: {
-      value: (gridY === GRID_SIZE - 1 ? FACE_EDGE['+y'] : INNER_GREY).clone(),
+      value: (gridY === GRID_SIZE_Y - 1 ? FACE_EDGE['+y'] : INNER_GREY).clone(),
     },
     u_ny_center: {
       value: (gridY === 0 ? FACE_CENTER['-y'] : INNER_GREY).clone(),
@@ -247,10 +246,10 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
       value: (gridY === 0 ? FACE_EDGE['-y'] : INNER_GREY).clone(),
     },
     u_pz_center: {
-      value: (gridZ === GRID_SIZE - 1 ? FACE_CENTER['+z'] : INNER_GREY).clone(),
+      value: (gridZ === GRID_SIZE_Z - 1 ? FACE_CENTER['+z'] : INNER_GREY).clone(),
     },
     u_pz_edge: {
-      value: (gridZ === GRID_SIZE - 1 ? FACE_EDGE['+z'] : INNER_GREY).clone(),
+      value: (gridZ === GRID_SIZE_Z - 1 ? FACE_EDGE['+z'] : INNER_GREY).clone(),
     },
     u_nz_center: {
       value: (gridZ === 0 ? FACE_CENTER['-z'] : INNER_GREY).clone(),

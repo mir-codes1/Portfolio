@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
-// Assembly spans ~3.12 units on each axis; its bounding sphere radius ≈ 2.7 units.
-const ASSEMBLY_RADIUS = 2.7
+// 2×1×1 assembly: two nodes along X; bounding extent ~1.02 × 0.51 × 0.51.
+const ASSEMBLY_RADIUS = 0.9
 
 function computeScale(vw: number, vh: number): number {
   const minDim = Math.min(vw, vh)

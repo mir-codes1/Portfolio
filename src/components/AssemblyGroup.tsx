@@ -4,11 +4,13 @@ import * as THREE from 'three'
 
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useResponsiveScale } from '@/hooks/useResponsiveScale'
-import { GRID_SIZE } from '@/data/projects'
+import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z } from '@/data/projects'
 import { CubeNode } from './CubeNode'
 
 const STEP = 1.015   // nodeSize (1.0) + gap (0.015)
-const HALF = (GRID_SIZE - 1) / 2   // 0.5 — centres the assembly at origin
+const HALF_X = (GRID_SIZE_X - 1) / 2
+const HALF_Y = (GRID_SIZE_Y - 1) / 2
+const HALF_Z = (GRID_SIZE_Z - 1) / 2
 
 interface NodeDef {
   gridX: number
@@ -20,16 +22,17 @@ interface NodeDef {
 
 function buildGrid(): NodeDef[] {
   const nodes: NodeDef[] = []
-  for (let z = 0; z < GRID_SIZE; z++) {
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
+  for (let z = 0; z < GRID_SIZE_Z; z++) {
+    for (let y = 0; y < GRID_SIZE_Y; y++) {
+      for (let x = 0; x < GRID_SIZE_X; x++) {
+        const nodeIndex = x + y * GRID_SIZE_X + z * GRID_SIZE_X * GRID_SIZE_Y
         nodes.push({
           gridX: x, gridY: y, gridZ: z,
-          nodeIndex: x + y * GRID_SIZE + z * GRID_SIZE * GRID_SIZE,
+          nodeIndex,
           position: [
-            (x - HALF) * STEP,
-            (y - HALF) * STEP,
-            (z - HALF) * STEP,
+            (x - HALF_X) * STEP,
+            (y - HALF_Y) * STEP,
+            (z - HALF_Z) * STEP,
           ],
         })
       }

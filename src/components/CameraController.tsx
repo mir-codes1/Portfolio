@@ -32,14 +32,12 @@ export function CameraController({ controlsRef }: Props) {
   const { camera } = useThree()
   const { selectedFace, setSelectedFace } = usePortfolioStore()
 
-  // Lerp targets, updated when selectedFace changes
   const targetPos     = useRef(new THREE.Vector3(3.6, 3.2, 4.5))
   const targetLookAt  = useRef(new THREE.Vector3(0, 0, 0))
+  const targetUp      = useRef(new THREE.Vector3(0, 1, 0))
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0))
+  const currentUp     = useRef(new THREE.Vector3(0, 1, 0))
   const mode          = useRef<CameraMode>('idle')
-
-  const DEFAULT_POS    = new THREE.Vector3(3.6, 3.2, 4.5)
-  const DEFAULT_LOOKAT = new THREE.Vector3(0, 0, 0)
 
   useEffect(() => {
     if (selectedFace) {
@@ -50,35 +48,23 @@ export function CameraController({ controlsRef }: Props) {
 
       const normal   = new THREE.Vector3(nx, ny, nz).normalize()
       const rightVec = new THREE.Vector3(right[0], right[1], right[2]).normalize()
+      const upVec    = new THREE.Vector3().crossVectors(normal, rightVec).normalize()
       const focusPoint = new THREE.Vector3(px, py, pz)
 
-      // Camera sits directly in front of the clicked face, with a sideways
-      // offset so the node lands around the left-centre of the screen.
       targetPos.current
         .copy(focusPoint)
         .addScaledVector(normal, FOCUS_DIST)
         .addScaledVector(rightVec, LOOKAT_SHIFT)
 
-      // Look straight at the centre of the node, and align camera "up"
-      // with a stable world up so the sticker is never rolled.
       targetLookAt.current.copy(focusPoint)
+      targetUp.current.copy(upVec)
       mode.current = 'focus'
     } else {
-      // Immediately restore the default overview and relinquish control
-      // back to OrbitControls so the user has full freedom.
+      // Only relinquish control; do not move camera. Origin zoom is for first load only.
       mode.current = 'idle'
-      targetPos.current.copy(DEFAULT_POS)
-      targetLookAt.current.copy(DEFAULT_LOOKAT)
-
-      if (controlsRef.current) {
-        controlsRef.current.reset()
-      } else {
-        camera.position.copy(DEFAULT_POS)
-        camera.up.set(0, 1, 0)
-        camera.lookAt(DEFAULT_LOOKAT)
-      }
+      if (controlsRef.current) controlsRef.current.enabled = true
     }
-  }, [selectedFace, camera, controlsRef])
+  }, [selectedFace, controlsRef])
 
   // Escape key to deselect
   useEffect(() => {
@@ -99,7 +85,9 @@ export function CameraController({ controlsRef }: Props) {
 
     camera.position.lerp(targetPos.current, alpha)
     currentLookAt.current.lerp(targetLookAt.current, alpha)
-    camera.up.set(0, 1, 0)
+    currentUp.current.lerp(targetUp.current, alpha)
+
+    camera.up.copy(currentUp.current)
     camera.lookAt(currentLookAt.current)
   })
 

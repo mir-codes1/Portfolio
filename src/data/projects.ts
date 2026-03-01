@@ -5,7 +5,7 @@ export type CategoryId    = 'ml' | 'tools' | 'math' | 'physics' | 'apps' | 'game
 
 export interface FaceProject {
   id: string                   // `${nodeIndex}-${faceDir}`
-  nodeIndex: number            // 0–7 (2×2×2 grid)
+  nodeIndex: number            // 0–1 (2×1×1 grid)
   faceDir: FaceDirection
   category: CategoryId
   label: string
@@ -16,7 +16,11 @@ export interface FaceProject {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const GRID_SIZE = 2   // 2×2×2
+// Grid is 2×1×1: two nodes along X. 2-sided categories: tools, physics, math, games. 1-sided: ML, Apps.
+export const GRID_SIZE_X = 2
+export const GRID_SIZE_Y = 1
+export const GRID_SIZE_Z = 1
+export const GRID_TOTAL = GRID_SIZE_X * GRID_SIZE_Y * GRID_SIZE_Z
 
 // Per-face colours (one colour per world face direction)
 export const FACE_COLORS: Record<FaceDirection, string> = {
@@ -28,14 +32,14 @@ export const FACE_COLORS: Record<FaceDirection, string> = {
   '-z': '#C9D1D9',
 }
 
-// Face → category
+// Face → category. +x/-x = 1-sided (Apps, ML). +y/-y/+z/-z = 2-sided (Physics, Math, Website Tools, Game Development).
 export const FACE_CATEGORY: Record<FaceDirection, CategoryId> = {
   '+x': 'apps',
-  '-x': 'games',
+  '-x': 'ml',
   '+y': 'physics',
   '-y': 'math',
   '+z': 'tools',
-  '-z': 'ml',
+  '-z': 'games',
 }
 
 export const CATEGORY_META: Record<CategoryId, { name: string }> = {
@@ -50,13 +54,13 @@ export const CATEGORY_META: Record<CategoryId, { name: string }> = {
 // ─── Named projects ───────────────────────────────────────────────────────────
 
 const NAMED: Record<string, Pick<FaceProject, 'label' | 'description' | 'techTags' | 'url'>> = {
-  '7-+y': {
+  '0-+y': {
     label: '1D Elastic Collision Simulator',
     description: 'Visualise perfectly elastic collisions in real time. Adjust mass and velocity of multiple balls and watch momentum and energy conservation.',
     techTags: ['React', 'Canvas API', 'Physics'],
     url: '#',
   },
-  '6-+z': {
+  '1-+z': {
     label: 'Geographical Midpoint Tool',
     description: 'Find the geographic midpoint between any number of locations on Earth. Useful for planning meetups, travel routes, and logistics.',
     techTags: ['React', 'Leaflet', 'TypeScript'],
