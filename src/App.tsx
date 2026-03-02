@@ -10,6 +10,8 @@ import { SceneLighting } from '@/components/SceneLighting'
 import { CameraController } from '@/components/CameraController'
 import { SceneCard } from '@/components/SceneCard'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { PolkaDotBackground } from '@/components/PolkaDotBackground'
+import { WelcomeTitle } from '@/components/WelcomeTitle'
 
 function SceneContent() {
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -18,9 +20,7 @@ function SceneContent() {
 
   return (
     <>
-      {/* Scene background */}
-      <color attach="background" args={['#111111']} />
-
+      {/* No opaque background so polka dots behind the canvas show through */}
       <SceneLighting />
 
       <Suspense fallback={<LoadingSpinner />}>
@@ -49,20 +49,24 @@ function SceneContent() {
 export default function App() {
   return (
     <div style={{
+      position: 'relative',
       width: '100vw',
       height: '100vh',
       background: '#111111',
     }}>
+      {/* Dots sit behind the canvas so they don’t overlap the cube */}
+      <PolkaDotBackground />
       <Canvas
-        // High-angle corner view: see top, front, and right faces simultaneously
         camera={{ position: [3.6, 3.2, 4.5], fov: 45 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
-        style={{ display: 'block', width: '100%', height: '100%' }}
-        // No shadows needed with flat lighting
+        gl={{ antialias: true, powerPreference: 'high-performance', alpha: true }}
+        style={{ display: 'block', width: '100%', height: '100%', position: 'relative', zIndex: 0 }}
         shadows={false}
       >
         <SceneContent />
       </Canvas>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
+        <WelcomeTitle />
+      </div>
     </div>
   )
 }

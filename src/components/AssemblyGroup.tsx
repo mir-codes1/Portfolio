@@ -7,7 +7,7 @@ import { useResponsiveScale } from '@/hooks/useResponsiveScale'
 import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z } from '@/data/projects'
 import { CubeNode } from './CubeNode'
 
-const STEP = 1.015   // nodeSize (1.0) + gap (0.015)
+const STEP = 1.0075  // nodeSize (1.0) + gap (0.0075), halved
 const HALF_X = (GRID_SIZE_X - 1) / 2
 const HALF_Y = (GRID_SIZE_Y - 1) / 2
 const HALF_Z = (GRID_SIZE_Z - 1) / 2
