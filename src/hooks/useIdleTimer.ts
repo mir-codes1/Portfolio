@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 
-const IDLE_DELAY = 2000  // Start auto-rotate after 2s of inactivity
+const IDLE_DELAY = 2000  // Resume auto-rotate 2s after last interaction
 
 // Idle is reset only when the user *drags* (pointer-down + move),
 // not on every pointer event, so stationary hovering doesn't reset it.

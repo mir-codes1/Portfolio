@@ -22,7 +22,7 @@ interface PortfolioStore {
 export const usePortfolioStore = create<PortfolioStore>((set) => ({
   hoveredFaceId:     null,
   selectedFace:      null,
-  isIdle:            false,
+  isIdle:            true,
   isCameraReturning: false,
 
   setHoveredFaceId:      (id)   => set({ hoveredFaceId: id }),

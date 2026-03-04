@@ -2,10 +2,10 @@ import { useMemo } from 'react'
 
 const DOT_SPACING = 48   // halved density (was 24)
 const DOT_SIZE = 1.5
-const DOT_OPACITY = 0.055  // more transparent
+const DOT_OPACITY = 0.09  // more transparent
 // Dots fade from full visibility in center to transparent toward edges
-const FADE_INNER = '35%'  // full visibility within this radius
-const FADE_OUTER = '85%'  // fully faded by this radius
+const FADE_INNER = '30%'  // full visibility within this radius
+const FADE_OUTER = '50%'  // fully faded by this radius
 
 export function PolkaDotBackground() {
   const style = useMemo(() => {

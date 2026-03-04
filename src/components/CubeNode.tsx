@@ -35,93 +35,116 @@ const fragmentShader = /* glsl */`
   varying vec3 vLocalNormal;
   varying vec2 vUv;
 
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-  float grain(vec2 uv) {
-    vec2 i = floor(uv); vec2 f = fract(uv);
-    float a = hash(i), b = hash(i+vec2(1,0)), c = hash(i+vec2(0,1)), d = hash(i+vec2(1,1));
-    vec2 u = f*f*(3.0-2.0*f);
-    return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
+  // ── Gradient-button 5-stop radial sample (branchless) ───────────────────────
+  vec3 gbSample(float r,
+                vec3 c1, vec3 c2, vec3 c3, vec3 c4, vec3 c5,
+                float s1, float s2, float s3, float s4, float s5) {
+    vec3 col = c1;
+    col = mix(col, c2, clamp((r - s1) / max(s2 - s1, 0.0001), 0.0, 1.0));
+    col = mix(col, c3, clamp((r - s2) / max(s3 - s2, 0.0001), 0.0, 1.0));
+    col = mix(col, c4, clamp((r - s3) / max(s4 - s3, 0.0001), 0.0, 1.0));
+    col = mix(col, c5, clamp((r - s4) / max(s5 - s4, 0.0001), 0.0, 1.0));
+    return col;
   }
 
   void main() {
     vec3 n = normalize(vLocalNormal);
     vec3 an = abs(n);
 
-    // Pick gradient colours for the active face
-    vec3 centerCol;
-    vec3 edgeCol;
+    // ── Per-face tint colour (used as a subtle additive overlay) ────────────────
+    vec3 centerCol, edgeCol;
     if (an.x >= an.y && an.x >= an.z) {
-      if (n.x > 0.0) {
-        centerCol = u_px_center;
-        edgeCol   = u_px_edge;
-      } else {
-        centerCol = u_nx_center;
-        edgeCol   = u_nx_edge;
-      }
+      centerCol = n.x > 0.0 ? u_px_center : u_nx_center;
+      edgeCol   = n.x > 0.0 ? u_px_edge   : u_nx_edge;
     } else if (an.y >= an.x && an.y >= an.z) {
-      if (n.y > 0.0) {
-        centerCol = u_py_center;
-        edgeCol   = u_py_edge;
-      } else {
-        centerCol = u_ny_center;
-        edgeCol   = u_ny_edge;
-      }
+      centerCol = n.y > 0.0 ? u_py_center : u_ny_center;
+      edgeCol   = n.y > 0.0 ? u_py_edge   : u_ny_edge;
     } else {
-      if (n.z > 0.0) {
-        centerCol = u_pz_center;
-        edgeCol   = u_pz_edge;
-      } else {
-        centerCol = u_nz_center;
-        edgeCol   = u_nz_edge;
-      }
+      centerCol = n.z > 0.0 ? u_pz_center : u_nz_center;
+      edgeCol   = n.z > 0.0 ? u_pz_edge   : u_nz_edge;
     }
+    float tintT   = clamp(length(vUv - vec2(0.5)) / 0.7, 0.0, 1.0);
+    vec3  faceTint = mix(centerCol, edgeCol, tintT);
 
-    // Radial "inner glow" from approx. (40%, 40%)
-    vec2 glowCenter = vec2(0.4, 0.4);
-    float r = distance(vUv, glowCenter);
-    float maxR = 0.8;
-    float t = clamp(r / maxR, 0.0, 1.0);
-    vec3 col = mix(centerCol, edgeCol, t);
+    // ── Gradient-button: idle state  (dark navy / maroon) ──────────────────────
+    // Colors match the CSS: #000, #08012c, #4e1e40, #70464e, #88394c
+    const vec3 DC1 = vec3(0.0000, 0.0000, 0.0000);
+    const vec3 DC2 = vec3(0.0314, 0.0039, 0.1725);
+    const vec3 DC3 = vec3(0.3059, 0.1176, 0.2510);
+    const vec3 DC4 = vec3(0.4392, 0.2745, 0.3059);
+    const vec3 DC5 = vec3(0.5333, 0.2235, 0.2980);
 
-    // Satin fabric texture sampled from external map; tinted by our gradient.
-    vec2 tiledUv = vUv * 4.0;
-    vec3 satinSample = texture2D(u_satinMap, tiledUv).rgb;
-    float satinLuma = dot(satinSample, vec3(0.299, 0.587, 0.114));
+    // ── Gradient-button: hover state  (warm pink / orange) ─────────────────────
+    // Colors match the CSS hover: #c96287, #c66c64, #cc7d23, #37140a, #000
+    const vec3 HC1 = vec3(0.7882, 0.3843, 0.5294);
+    const vec3 HC2 = vec3(0.7765, 0.4235, 0.3922);
+    const vec3 HC3 = vec3(0.8000, 0.4902, 0.1373);
+    const vec3 HC4 = vec3(0.2157, 0.0784, 0.0392);
+    const vec3 HC5 = vec3(0.0000, 0.0000, 0.0000);
+
+    vec3 c1 = mix(DC1, HC1, u_hover);
+    vec3 c2 = mix(DC2, HC2, u_hover);
+    vec3 c3 = mix(DC3, HC3, u_hover);
+    vec3 c4 = mix(DC4, HC4, u_hover);
+    vec3 c5 = mix(DC5, HC5, u_hover);
+
+    // Gradient focal point and elliptical spread (CSS percentages → UV fractions)
+    // idle:  at (11.14%, 140%)  spread (150%, 180%)
+    // hover: at (0%,    91.5%)  spread (120%,  103%)
+    vec2 pos = mix(vec2(0.1114, 1.4000), vec2(0.0000, 0.9151), u_hover);
+    vec2 sp  = mix(vec2(1.5000, 1.8006), vec2(1.2024, 1.0318), u_hover);
+
+    // Color stops (0–1, matching CSS % / 100)
+    float s1 = mix(0.3735, 0.0000, u_hover);
+    float s2 = mix(0.6136, 0.0880, u_hover);
+    float s3 = mix(0.7842, 0.2144, u_hover);
+    float s4 = mix(0.8952, 0.7134, u_hover);
+    float s5 = mix(1.0000, 0.8576, u_hover);
+
+    // Elliptic radial distance → sample gradient
+    float r   = length((vUv - pos) / sp);
+    vec3  gbCol = gbSample(r, c1, c2, c3, c4, c5, s1, s2, s3, s4, s5);
+
+    // Face colour is the base; gradient is a weak overlay that strengthens on hover
+    float gbStrength = mix(0.22, 0.45, u_hover);
+    vec3  col = mix(faceTint, gbCol, gbStrength);
+
+    // ── Satin texture ──────────────────────────────────────────────────────────
+    float satinLuma = dot(texture2D(u_satinMap, vUv * 4.0).rgb, vec3(0.299, 0.587, 0.114));
     col *= mix(0.90, 1.10, satinLuma);
 
-    // Hover brightening
-    col = mix(col, col + vec3(0.22), u_hover);
-
-    // Specular "glass" streak along a fixed diagonal in UV space
+    // ── Glass / specular streak ────────────────────────────────────────────────
     float diag = (vUv.x + vUv.y) * 0.7;
-    float glassBand = smoothstep(0.30, 0.0, abs(diag - 0.30));
-    float glassStrength = glassBand * 0.06;
-    col = mix(col, vec3(1.0), glassStrength);
+    col = mix(col, vec3(1.0), smoothstep(0.30, 0.0, abs(diag - 0.30)) * 0.05);
 
-    // Rounded-rect stencil with a dark studio background "gap" (halved)
-    float gap = 0.015;
-    float feather = 0.0075;
-    vec2 innerMin = vec2(gap, gap);
-    vec2 innerMax = vec2(1.0 - gap, 1.0 - gap);
+    // ── Gap + rounded-corner sticker mask ─────────────────────────────────────
+    float gap = 0.02, feather = 0.0075;
+    vec2 iMin = vec2(gap), iMax = vec2(1.0 - gap);
+    float mX = smoothstep(iMin.x, iMin.x + feather, vUv.x)
+             * smoothstep(iMax.x, iMax.x - feather, vUv.x);
+    float mY = smoothstep(iMin.y, iMin.y + feather, vUv.y)
+             * smoothstep(iMax.y, iMax.y - feather, vUv.y);
+    float cDist = length(vUv - clamp(vUv, iMin, iMax));
+    float mask  = mX * mY * smoothstep(0.22, 0.22 - feather, cDist);
 
-    // Base rectangle mask (2px-style gap)
-    float maskX = smoothstep(innerMin.x, innerMin.x + feather, vUv.x)
-                * smoothstep(innerMax.x, innerMax.x - feather, vUv.x);
-    float maskY = smoothstep(innerMin.y, innerMin.y + feather, vUv.y)
-                * smoothstep(innerMax.y, innerMax.y - feather, vUv.y);
-    float rectMask = maskX * maskY;
+    // ── Border glow  (::before equivalent from gradient-button CSS) ────────────
+    // Linear-gradient angle: 20° idle → 190° hover
+    float bAngle = mix(radians(20.0), radians(190.0), u_hover);
+    float bGrad  = clamp(dot(vUv - 0.5, vec2(sin(bAngle), cos(bAngle))) + 0.5, 0.0, 1.0);
+    // idle:  hsla(340,75%,60%,0.20) → hsla(340,75%,40%,0.75)
+    // hover: hsla(340,78%,90%,0.10) → hsla(340,75%,90%,0.60)
+    vec3  bc1 = mix(vec3(0.902, 0.302, 0.498), vec3(0.980, 0.863, 0.910), u_hover);
+    vec3  bc2 = mix(vec3(0.686, 0.102, 0.302), vec3(0.980, 0.855, 0.906), u_hover);
+    float ba1 = mix(0.20, 0.10, u_hover);
+    float ba2 = mix(0.75, 0.60, u_hover);
+    vec3  bRgb = mix(bc1, bc2, bGrad);
+    float bA   = mix(ba1, ba2, bGrad);
+    // Apply only inside the sticker, near its edge
+    float eDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+    col = mix(col, bRgb, (1.0 - smoothstep(0.0, 0.04, eDist)) * mask * bA);
 
-    // Rounded corners via distance to the clipped UV (rounded-rect SDF)
-    vec2 uvClamped = clamp(vUv, innerMin, innerMax);
-    float cornerDist = length(vUv - uvClamped);
-    float radius = 0.22;
-    float cornerMask = smoothstep(radius, radius - feather, cornerDist);
-
-    float mask = rectMask * cornerMask;
+    // ── Final composite ────────────────────────────────────────────────────────
     col = mix(u_bg, col, clamp(mask, 0.0, 1.0));
-
     gl_FragColor = vec4(col, u_opacity);
   }
 `

@@ -5,6 +5,20 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
+
+function UIOverlay() {
+  const selected = usePortfolioStore(state => !!state.selectedFace)
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+      opacity: selected ? 0 : 1,
+      transition: 'opacity 0.15s ease-out',
+    }}>
+      <WelcomeTitle />
+      <CategoryLegend />
+    </div>
+  )
+}
 import { AssemblyGroup } from '@/components/AssemblyGroup'
 import { SceneLighting } from '@/components/SceneLighting'
 import { CameraController } from '@/components/CameraController'
@@ -12,6 +26,8 @@ import { SceneCard } from '@/components/SceneCard'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { PolkaDotBackground } from '@/components/PolkaDotBackground'
 import { WelcomeTitle } from '@/components/WelcomeTitle'
+import { CategoryLegend } from '@/components/CategoryLegend'
+import { CursorFollower } from '@/components/CursorFollower'
 
 function SceneContent() {
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -52,11 +68,13 @@ export default function App() {
       position: 'relative',
       width: '100vw',
       height: '100vh',
-      background: '#111111',
+      background: '#191919',
+      cursor: 'none',
     }}>
       {/* Dots sit behind the canvas so they don’t overlap the cube */}
       <PolkaDotBackground />
       <Canvas
+      // adjust fov here
         camera={{ position: [3.6, 3.2, 4.5], fov: 45 }}
         gl={{ antialias: true, powerPreference: 'high-performance', alpha: true }}
         style={{ display: 'block', width: '100%', height: '100%', position: 'relative', zIndex: 0 }}
@@ -64,9 +82,8 @@ export default function App() {
       >
         <SceneContent />
       </Canvas>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
-        <WelcomeTitle />
-      </div>
+      <UIOverlay />
+      <CursorFollower />
     </div>
   )
 }
