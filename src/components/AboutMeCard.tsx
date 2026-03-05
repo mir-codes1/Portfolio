@@ -65,7 +65,7 @@ export function AboutMeCard() {
         borderRadius,
         background,
         boxShadow,
-        border:        '1px solid rgba(255,255,255,0.6)',
+        border:        `1px solid ${borderColor}`,
         display:       'flex',
         overflow:      'hidden',
         zIndex:        10,
