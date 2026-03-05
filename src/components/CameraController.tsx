@@ -12,19 +12,15 @@ const LOOKAT_SHIFT = 0.85
 // Lerp speed (higher = snappier)
 const LERP_SPEED   = 5
 
-// Right vector for each face direction (camera's rightward axis when facing that face)
-const FACE_RIGHT: Record<string, [number, number, number]> = {
-  '+z': [ 1, 0,  0],
-  '-z': [-1, 0,  0],
-  '+x': [ 0, 0, -1],
-  '-x': [ 0, 0,  1],
-  '+y': [ 1, 0,  0],
-  '-y': [-1, 0,  0],
-}
+// World-up reference used to derive the camera right/up vectors from the face normal
+const WORLD_UP = new THREE.Vector3(0, 1, 0)
 
 const DEFAULT_POS    = new THREE.Vector3(3.6, 3.2, 4.5)
 const DEFAULT_LOOKAT = new THREE.Vector3(0, 0, 0)
-const DEFAULT_UP    = new THREE.Vector3(0, 1, 0)
+const DEFAULT_UP     = new THREE.Vector3(0, 1, 0)
+
+const SCROLL_TARGET_POS    = new THREE.Vector3(0, 0.3, 3.5)
+const SCROLL_TARGET_LOOKAT = new THREE.Vector3(0, 0, 0)
 
 type CameraMode = 'idle' | 'focus' | 'return'
 
@@ -43,16 +39,32 @@ export function CameraController({ controlsRef }: Props) {
   const currentUp     = useRef(new THREE.Vector3(0, 1, 0))
   const mode          = useRef<CameraMode>('idle')
 
+  // Captured camera state at the moment scrolling begins — so we always
+  // lerp FROM wherever the camera actually is, not from a hardcoded default.
+  const scrollOriginPos    = useRef<THREE.Vector3 | null>(null)
+  const scrollOriginLookAt = useRef<THREE.Vector3 | null>(null)
+
   useEffect(() => {
     if (selectedFace) {
       const [nx, ny, nz] = selectedFace.worldNormal
       const [px, py, pz] = selectedFace.worldPos
-      const faceDir = selectedFace.faceProject.faceDir
-      const right = FACE_RIGHT[faceDir] ?? [1, 0, 0]
+      const [ux, uy, uz] = selectedFace.worldFaceUp
 
-      const normal   = new THREE.Vector3(nx, ny, nz).normalize()
-      const rightVec = new THREE.Vector3(right[0], right[1], right[2]).normalize()
-      const upVec    = new THREE.Vector3().crossVectors(normal, rightVec).normalize()
+      const normal = new THREE.Vector3(nx, ny, nz).normalize()
+
+      // Derive right from world-up × normal so the camera shift is always
+      // horizontal, regardless of how much the cube has auto-rotated.
+      const rightVec = new THREE.Vector3().crossVectors(WORLD_UP, normal)
+      if (rightVec.lengthSq() < 0.001) {
+        // Normal is nearly parallel to worldUp (top/bottom face) — use X fallback
+        rightVec.set(1, 0, 0)
+      }
+      rightVec.normalize()
+
+      // Use the world-space face-up captured at click time so the camera "up"
+      // always matches the icon's actual orientation (critical for top/bottom faces
+      // when the cube has auto-rotated to an arbitrary angle).
+      const upVec = new THREE.Vector3(ux, uy, uz)
       const focusPoint = new THREE.Vector3(px, py, pz)
 
       targetPos.current
@@ -77,16 +89,41 @@ export function CameraController({ controlsRef }: Props) {
   // Escape key to deselect
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setSelectedFace(null)
-        document.body.style.cursor = 'default'
-      }
+      if (e.key !== 'Escape') return
+      if (usePortfolioStore.getState().isScrollMode) return
+      setSelectedFace(null)
+      document.body.style.cursor = 'default'
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [setSelectedFace])
 
   useFrame((_, delta) => {
+    const scrollProgress = usePortfolioStore.getState().scrollProgress
+    if (scrollProgress > 0 && mode.current === 'idle') {
+      // Imperatively cut OrbitControls off immediately — don't wait for the
+      // React prop update, which arrives 1-2 frames late and causes damping jitter.
+      if (controlsRef.current?.enabled) controlsRef.current.enabled = false
+
+      // Capture the camera's actual position the first frame scroll begins
+      if (!scrollOriginPos.current) {
+        scrollOriginPos.current    = camera.position.clone()
+        scrollOriginLookAt.current = currentLookAt.current.clone()
+      }
+      const p = Math.min(scrollProgress, 1)
+      const smooth = p * p * (3 - 2 * p)
+      camera.position.lerpVectors(scrollOriginPos.current, SCROLL_TARGET_POS, smooth)
+      currentLookAt.current.lerpVectors(scrollOriginLookAt.current!, SCROLL_TARGET_LOOKAT, smooth)
+      camera.lookAt(currentLookAt.current)
+      return
+    }
+
+    // Reset captured origin once scroll returns to 0
+    if (scrollProgress === 0 && scrollOriginPos.current) {
+      scrollOriginPos.current    = null
+      scrollOriginLookAt.current = null
+    }
+
     if (mode.current === 'idle') return
 
     const alpha = Math.min(1, delta * LERP_SPEED)

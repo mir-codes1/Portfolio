@@ -93,11 +93,11 @@ export function WelcomeTitle() {
         fontWeight: 400,
         height: '347px',
         justifyContent: 'center',
-        left: '44px',
+        left: '2.7vw',
         fontSize: '0px',
         color: 'white',
-        top: '133.5px',
-        width: '618px',
+        top: '19.2vh',
+        width: '32.188vw',
         whiteSpace: 'pre-wrap',
         pointerEvents: 'none',
       }}>
@@ -108,7 +108,7 @@ export function WelcomeTitle() {
           animation: `titleSlideInLeft ${T1_DUR} ${T1_EASE} ${T1_DELAY} both`,
         }}>
           <span style={{ lineHeight: 0, fontSize: '1.68vw', letterSpacing: '8.4px' }}>Hi there!</span>
-          <span style={{ lineHeight: 0, fontSize: '1.68w', letterSpacing: '4.9px' }}>{` `}</span>
+          <span style={{ lineHeight: 0, fontSize: '1.68w', letterSpacing: '4.9px' }}>{`  `}</span>
           <span style={{ lineHeight: 0, fontSize: '1.563vw', letterSpacing: '2.4px' }}>I'm</span>
         </p>
 
@@ -122,7 +122,7 @@ export function WelcomeTitle() {
             fontFamily: "'Kosugi Maru', sans-serif",
             lineHeight: 1.45,
             fontStyle: 'normal',
-            fontSize: '2.083vw',
+            fontSize: '2.102vw',
             animation: `commaAppear 0.15s ease ${TC_DELAY} both`,
           }}>,</span>
 
@@ -155,10 +155,10 @@ export function WelcomeTitle() {
         fontWeight: 700,
         height: '205px',
         justifyContent: 'center',
-        left: '44px',
+        left: '2.7vw',
         fontSize: '3.125vw',
-        top: '134.5px',
-        width: '618px',
+        top: '19.5vh',
+        width: '32.188vw',
         pointerEvents: 'auto',
       }}>
         {/* Tight clip wrapper — exactly the width of "Mir" text */}

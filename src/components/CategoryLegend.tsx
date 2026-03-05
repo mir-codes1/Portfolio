@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const ICON_SIZE = 30
+const ICON_SIZE = 20
 
 const iconStyle = (gradient: string): React.CSSProperties => ({
   width: ICON_SIZE,
@@ -40,7 +40,7 @@ const categories = [
     icon: iconStyle('conic-gradient(from 90deg, rgb(9, 148, 26) 0%, rgb(6, 97, 17) 50%, rgb(4, 72, 13) 75%, rgb(3, 46, 8) 100%)'),
   },
   {
-    label: 'App',
+    label: 'Browser Extension',
     textGradient: 'linear-gradient(to right, #8aa1ff, #5570ff, #8aa1ff, #3059ff, #8aa1ff)',
     animDuration: '10.5s',
     animDelay: '-5s',
@@ -91,12 +91,12 @@ export function CategoryLegend() {
       <style>{css}</style>
       <div style={{
         position: 'absolute',
-        right: '3.35vw',
-        top: '68%',
+        right: '2.7vw',
+        top: '70%',
         transform: 'translateY(-50%)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '24px',
+        gap: '2.5vh',
         pointerEvents: 'none',
       }}>
         {categories.map(({ label, textGradient, textColor, icon, animDuration, animDelay }, index) => {

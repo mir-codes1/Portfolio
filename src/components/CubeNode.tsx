@@ -1,13 +1,15 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 
 import type { FaceDirection } from '@/data/projects'
-import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z, getFaceProject } from '@/data/projects'
+import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z, ALL_FACE_DIRS, getFaceProject } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
+import { FaceIcon } from './FaceIcon'
+import { FACE_ICON_MAP } from '@/utils/faceIcons'
 
 // ─── Shader: per-face inner-glow stickers with grain + glass overlay ─────────
 
@@ -183,6 +185,17 @@ function isOuterFace(
   }
 }
 
+// Face-local "up" direction in node space (after applying FACE_TRANSFORM rotation).
+// Used to compute a world-space up vector for the camera that matches the icon orientation.
+const FACE_LOCAL_UP: Record<FaceDirection, THREE.Vector3> = {
+  '+x': new THREE.Vector3(0,  1,  0),
+  '-x': new THREE.Vector3(0,  1,  0),
+  '+y': new THREE.Vector3(0,  0, -1), // rot [-π/2,0,0]: local Y → node -Z
+  '-y': new THREE.Vector3(0,  0,  1), // rot [ π/2,0,0]: local Y → node +Z
+  '+z': new THREE.Vector3(0,  1,  0),
+  '-z': new THREE.Vector3(0,  1,  0),
+}
+
 // Shared colour values (read-only, cloned per instance below)
 const INNER_GREY = hexToVec3('#202124')
 const GAP_BG     = hexToVec3('#111111')
@@ -209,15 +222,18 @@ const FACE_EDGE = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface CubeNodeProps {
-  nodeIndex: number
-  gridX: number
-  gridY: number
-  gridZ: number
-  position:  [number, number, number]
+  nodeIndex:  number
+  gridX:      number
+  gridY:      number
+  gridZ:      number
+  position:   [number, number, number]
+  scrollFade?: number
 }
 
-export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeProps) {
-  const { selectedFace, setHoveredFaceId, setSelectedFace } = usePortfolioStore()
+export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position, scrollFade = 0 }: CubeNodeProps) {
+  const { selectedFace, setHoveredFaceId, setSelectedFace, isScrollMode } = usePortfolioStore()
+  const scrollFadeRef = useRef(scrollFade)
+  scrollFadeRef.current = scrollFade
   const anySelected = selectedFace !== null
   const isSelected  = selectedFace?.faceProject.nodeIndex === nodeIndex
 
@@ -288,7 +304,7 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
 
   useFrame(() => {
     uniforms.u_hover.value   = hoverSp.hover.get()
-    uniforms.u_opacity.value = fadeSp.opacity.get()
+    uniforms.u_opacity.value = fadeSp.opacity.get()   // cube body stays visible during scroll flip
   })
 
   // ── Pointer handlers ─────────────────────────────────────────────────────────
@@ -314,6 +330,7 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
 
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
+    if (isScrollMode) return
     if (!e.face) return
 
     const faceDir    = normalToFaceDir(e.face.normal)
@@ -322,6 +339,11 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
     const worldPos   = new THREE.Vector3()
     e.object.getWorldPosition(worldPos)
 
+    // World-space "up" for the face icon — transforms the face's local-up through
+    // the mesh's world matrix so the camera stays aligned with the icon orientation
+    // even when the cube has auto-rotated (critical for top/bottom faces).
+    const worldFaceUpVec = FACE_LOCAL_UP[faceDir].clone().transformDirection(e.object.matrixWorld).normalize()
+
     const faceProject = getFaceProject(nodeIndex, faceDir)
     const alreadySelected = selectedFace?.faceProject.id === faceProject.id
 
@@ -329,6 +351,7 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
       faceProject,
       worldPos:    [worldPos.x, worldPos.y, worldPos.z],
       worldNormal: [worldNorm.x, worldNorm.y, worldNorm.z],
+      worldFaceUp: [worldFaceUpVec.x, worldFaceUpVec.y, worldFaceUpVec.z],
     })
     setHoveredFaceId(null)
     hoverSp.hover.start(0)
@@ -354,6 +377,20 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position }: CubeNodeP
             transparent
           />
         </mesh>
+        {ALL_FACE_DIRS
+          .filter(dir => isOuterFace(gridX, gridY, gridZ, dir))
+          .filter(dir => !!FACE_ICON_MAP[`${nodeIndex}-${dir}`])
+          .map(dir => (
+            <FaceIcon
+              key={dir}
+              faceDir={dir}
+              faceId={`${nodeIndex}-${dir}`}
+              iconPath={FACE_ICON_MAP[`${nodeIndex}-${dir}`]}
+              springOpacity={fadeSp.opacity}
+              scrollFade={scrollFade}
+            />
+          ))
+        }
       </animated.group>
     </animated.group>
   )

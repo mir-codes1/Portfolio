@@ -79,7 +79,9 @@ const fieldLabel: React.CSSProperties = {
 }
 
 export function ExpandedCard({ project, onClose }: ExpandedCardProps) {
-  const isPlaceholder = project.label === 'Project Placeholder'
+  const { status } = project
+  const isPlaceholder = status === 'placeholder'
+  const isWip = status === 'wip'
   const catMeta   = CATEGORY_META[project.category]
   const accentHex = FACE_COLORS[project.faceDir]
 
@@ -166,11 +168,11 @@ export function ExpandedCard({ project, onClose }: ExpandedCardProps) {
 
             {/* Status row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-              <IconBox>{isPlaceholder ? <SoonIcon /> : <LiveIcon />}</IconBox>
+              <IconBox>{isPlaceholder || isWip ? <SoonIcon /> : <LiveIcon />}</IconBox>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '10px', lineHeight: 1.3 }}>Status</div>
                 <div style={{ color: 'rgba(255,255,255,0.38)', fontSize: '9px', marginTop: '1px' }}>
-                  {isPlaceholder ? 'Coming soon' : 'Live'}
+                  {isPlaceholder ? 'Coming soon' : isWip ? 'WIP' : 'Live'}
                 </div>
               </div>
             </div>
@@ -203,7 +205,7 @@ export function ExpandedCard({ project, onClose }: ExpandedCardProps) {
             <div style={{ flexGrow: 1 }} />
 
             {/* CTA button */}
-            {!isPlaceholder && project.url !== '#' ? (
+            {!isPlaceholder && !isWip && project.url !== '#' ? (
               <a
                 href={project.url}
                 target="_blank"
