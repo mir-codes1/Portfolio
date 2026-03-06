@@ -2,6 +2,7 @@ import { Suspense, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { Analytics } from '@vercel/analytics/react'
 
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
@@ -111,6 +112,7 @@ export default function App() {
       <AboutMeCard />
       <ScrollIndicator />
       <SpotlightCursor config={{ radius: 120, brightness: 0.06, color: '#ffffff' }} />
+      <Analytics />
     </div>
   )
 }
