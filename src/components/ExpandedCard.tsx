@@ -10,8 +10,9 @@ interface ExpandedCardProps {
 }
 
 function calcPos(_el: THREE.Object3D, _cam: THREE.Camera, size: { width: number; height: number }) {
+  const xRatio = size.width < 640 ? 0.5 : 0.74
   return [
-    Math.round(size.width  * 0.74),
+    Math.round(size.width  * xRatio),
     Math.round(size.height * 0.5),
   ] as [number, number]
 }

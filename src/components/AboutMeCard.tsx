@@ -6,15 +6,20 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
-// Final card dimensions at checkpoint 2
-const END_WIDTH      = 860
-const END_LEFT_WIDTH = 310   // left photo panel — square (310×310)
-const END_HEIGHT     = 310   // = END_LEFT_WIDTH so photo is a perfect square
-
 export function AboutMeCard() {
   const scrollProgress = usePortfolioStore(s => s.scrollProgress)
 
   if (scrollProgress <= 0.95) return null
+
+  const viewW = window.innerWidth
+  const viewH = window.innerHeight
+
+  // End dimensions scale proportionally with the viewport using the same fractions
+  // as the original 860×310 at the 1536×695 reference — so the expansion ratio
+  // between the face-rect start and the card end stays consistent on any screen.
+  const END_WIDTH      = Math.round(viewW * (860 / 1536))
+  const END_HEIGHT     = Math.round(viewH * (310 / 695))
+  const END_LEFT_WIDTH = Math.min(END_HEIGHT, Math.round(END_WIDTH * (310 / 860)))
 
   const p2      = Math.max(0, Math.min(1, scrollProgress - 1))
   const smoothP2 = p2 * p2 * (3 - 2 * p2)
@@ -23,10 +28,10 @@ export function AboutMeCard() {
   const mountOpacity = Math.min(1, (scrollProgress - 0.95) / 0.05)
 
   // ── Start = projected cube face screen rect ───────────────────────────────
-  const startLeft   = faceScreenRect.valid ? faceScreenRect.left   : window.innerWidth  / 2 - 200
-  const startTop    = faceScreenRect.valid ? faceScreenRect.top    : window.innerHeight / 2 - 110
-  const startWidth  = faceScreenRect.valid ? faceScreenRect.width  : 400
-  const startHeight = faceScreenRect.valid ? faceScreenRect.height : 200
+  const startLeft   = faceScreenRect.valid ? faceScreenRect.left   : viewW / 2 - 200
+  const startTop    = faceScreenRect.valid ? faceScreenRect.top    : viewH / 2 - 110
+  const startWidth  = faceScreenRect.valid ? faceScreenRect.width  : viewW * 0.26
+  const startHeight = faceScreenRect.valid ? faceScreenRect.height : viewH * 0.29
 
   // ── End = centered final card ─────────────────────────────────────────────
   const endLeft = (window.innerWidth  - END_WIDTH)  / 2

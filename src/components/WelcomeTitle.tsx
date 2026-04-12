@@ -82,22 +82,20 @@ export function WelcomeTitle() {
     <div style={{ lineHeight: 0, fontStyle: 'normal', position: 'relative', width: '100%', height: '100%' }}>
       <style>{css}</style>
 
-      {/* Text layer — overflow hidden clips text at the left edge of this box */}
+      {/* Text layer — no outer overflow:hidden needed; body overflow:hidden clips off-screen slide animations */}
       <div style={{
-        overflow: 'hidden',
         transform: 'translateY(-50%)',
         position: 'absolute',
         display: 'flex',
         flexDirection: 'column',
         fontFamily: 'Inter, sans-serif',
         fontWeight: 400,
-        height: '347px',
-        justifyContent: 'center',
+        height: 'auto',
         left: '2.7vw',
         fontSize: '0px',
         color: 'white',
         top: '19.2vh',
-        width: '32.188vw',
+        width: 'clamp(220px, 32.188vw, 560px)',
         whiteSpace: 'pre-wrap',
         pointerEvents: 'none',
       }}>
@@ -107,40 +105,40 @@ export function WelcomeTitle() {
           margin: 0,
           animation: `titleSlideInLeft ${T1_DUR} ${T1_EASE} ${T1_DELAY} both`,
         }}>
-          <span style={{ lineHeight: 0, fontSize: '1.68vw', letterSpacing: '8.4px' }}>Hi there!</span>
-          <span style={{ lineHeight: 0, fontSize: '1.68w', letterSpacing: '4.9px' }}>{`  `}</span>
-          <span style={{ lineHeight: 0, fontSize: '1.563vw', letterSpacing: '2.4px' }}>I'm</span>
+          <span style={{ lineHeight: 0, fontSize: 'clamp(14px, 1.68vw, 28px)', letterSpacing: '0.33em' }}>Hi there!</span>
+          <span style={{ lineHeight: 0, fontSize: 'clamp(13px, 1.68vw, 28px)', letterSpacing: '0.32em' }}>{`  `}</span>
+          <span style={{ lineHeight: 0, fontSize: 'clamp(13px, 1.563vw, 26px)', letterSpacing: '0.16em' }}>I'm</span>
         </p>
 
         {/* Spacer line (positions "Mir" space) + comma + developer text */}
         <p style={{ margin: 0 }}>
           {/* Spacer — invisible, just creates vertical space for "Mir" */}
-          <span style={{ fontFamily: "'Kaisei Opti', sans-serif", lineHeight: 1.45, fontStyle: 'normal', fontSize: '3.125vw' }}>{`        `}</span>
+          <span style={{ fontFamily: "'Kaisei Opti', sans-serif", lineHeight: 1.45, fontStyle: 'normal', fontSize: 'clamp(26px, 3.125vw, 52px)' }}>{`        `}</span>
 
           {/* Comma — appears with Mir */}
           <span style={{
             fontFamily: "'Kosugi Maru', sans-serif",
             lineHeight: 1.45,
             fontStyle: 'normal',
-            fontSize: '2.102vw',
+            fontSize: 'clamp(17px, 2.102vw, 36px)',
             animation: `commaAppear 0.15s ease ${TC_DELAY} both`,
           }}>,</span>
 
-          <span style={{ lineHeight: 1.45, fontSize: '1.823vw' }}>
+          <span style={{ lineHeight: 1.45, fontSize: 'clamp(14px, 1.823vw, 30px)' }}>
             <br aria-hidden="true" />
           </span>
 
-          {/* (3) "a Full Stack Developer." — clip wrapper gives real height for translateY(-100%) */}
-          <span style={{ display: 'block', overflow: 'hidden', lineHeight: '1.4vw' }}>
+          {/* (3) "a Software Developer." — clip wrapper gives real height for translateY(-100%) */}
+          <span style={{ display: 'block', overflow: 'hidden', lineHeight: 'clamp(12px, 1.4vw, 24px)' }}>
             <span style={{
               display: 'block',
-              lineHeight: '1.4vw',
+              lineHeight: 'clamp(12px, 1.4vw, 24px)',
               animation: `developerSlideDown ${T3_DUR} ${T3_EASE} ${T3_DELAY} both`,
               fontFamily: "'Jura', sans-serif",
               fontWeight: 100,
-              fontSize: '1.4vw',
+              fontSize: 'clamp(12px, 1.4vw, 24px)',
               color: '#c8c8c8',
-            }}>a Full Stack Developer.</span>
+            }}>a Software Developer.</span>
           </span>
         </p>
       </div>
@@ -153,12 +151,11 @@ export function WelcomeTitle() {
         flexDirection: 'column',
         fontFamily: "'Kaisei Opti', sans-serif",
         fontWeight: 700,
-        height: '205px',
-        justifyContent: 'center',
+        height: 'auto',
         left: '2.7vw',
-        fontSize: '3.125vw',
+        fontSize: 'clamp(26px, 3.125vw, 52px)',
         top: '19.5vh',
-        width: '32.188vw',
+        width: 'clamp(220px, 32.188vw, 560px)',
         pointerEvents: 'auto',
       }}>
         {/* Tight clip wrapper — exactly the width of "Mir" text */}

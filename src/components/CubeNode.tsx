@@ -9,7 +9,7 @@ import { GRID_SIZE_X, GRID_SIZE_Y, GRID_SIZE_Z, ALL_FACE_DIRS, getFaceProject } 
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useNodeIntroSpring } from '@/hooks/useIntroAnimation'
 import { FaceIcon } from './FaceIcon'
-import { FACE_ICON_MAP } from '@/utils/faceIcons'
+import { FACE_ICON_MAP, FACE_CANVAS_ICONS } from '@/utils/faceIcons'
 
 // ─── Shader: per-face inner-glow stickers with grain + glass overlay ─────────
 
@@ -202,19 +202,19 @@ const GAP_BG     = hexToVec3('#111111')
 
 // Per-face inner/edge colours for the "sticker" gradients
 const FACE_CENTER = {
-  '+x': hexToVec3('#007AFF'), // Cerulean Blue
-  '-x': hexToVec3('#34C759'), // Emerald Glass
+  '+x': hexToVec3('#FFB900'), // Solar Amber    (tools)
+  '-x': hexToVec3('#FFB900'), // Solar Amber    (tools)
   '+y': hexToVec3('#AF52DE'), // Royal Violet
-  '-y': hexToVec3('#FF3B30'), // Vivid Crimson
+  '-y': hexToVec3('#007AFF'), // Cerulean Blue  (apps)
   '+z': hexToVec3('#FFB900'), // Solar Amber
   '-z': hexToVec3('#F5F5F7'), // Studio White
 } as const satisfies Record<FaceDirection, THREE.Vector3>
 
 const FACE_EDGE = {
-  '+x': hexToVec3('#0068D9'),
-  '-x': hexToVec3('#2CA94C'),
+  '+x': hexToVec3('#D99D00'),
+  '-x': hexToVec3('#D99D00'),
   '+y': hexToVec3('#9546BD'),
-  '-y': hexToVec3('#D93229'),
+  '-y': hexToVec3('#0068D9'),
   '+z': hexToVec3('#D99D00'),
   '-z': hexToVec3('#D1D1D4'),
 } as const satisfies Record<FaceDirection, THREE.Vector3>
@@ -379,7 +379,10 @@ export function CubeNode({ nodeIndex, gridX, gridY, gridZ, position, scrollFade 
         </mesh>
         {ALL_FACE_DIRS
           .filter(dir => isOuterFace(gridX, gridY, gridZ, dir))
-          .filter(dir => !!FACE_ICON_MAP[`${nodeIndex}-${dir}`])
+          .filter(dir => {
+            const id = `${nodeIndex}-${dir}`
+            return !!FACE_ICON_MAP[id] || !!FACE_CANVAS_ICONS[id]
+          })
           .map(dir => (
             <FaceIcon
               key={dir}

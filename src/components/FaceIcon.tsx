@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { useLoader, useFrame } from '@react-three/fiber'
 import { useSpring } from '@react-spring/three'
 import type { SpringValue } from '@react-spring/three'
@@ -6,7 +6,7 @@ import * as THREE from 'three'
 
 import type { FaceDirection } from '@/data/projects'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
-import { FACE_ICON_SCALE, FACE_ICON_OFFSET } from '@/utils/faceIcons'
+import { FACE_ICON_SCALE, FACE_ICON_OFFSET, FACE_ICON_NO_SHADOW, FACE_ICON_TINT, FACE_CANVAS_ICONS } from '@/utils/faceIcons'
 
 // ─── Per-face transform (group position + rotation in node-local space) ────────
 // Local Z after rotation points outward (away from cube surface)
@@ -25,16 +25,22 @@ const FACE_TRANSFORM: Record<FaceDirection, { pos: [number, number, number]; rot
 interface FaceIconProps {
   faceDir: FaceDirection
   faceId: string
-  iconPath: string
+  iconPath?: string
   springOpacity: SpringValue<number>
   scrollFade?: number
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Shared render logic ──────────────────────────────────────────────────────
 
-export function FaceIcon({ faceDir, faceId, iconPath, springOpacity, scrollFade = 0 }: FaceIconProps) {
-  const texture = useLoader(THREE.TextureLoader, iconPath)
-
+function FaceIconInner({
+  faceDir, faceId, texture, springOpacity, scrollFade = 0,
+}: {
+  faceDir: FaceDirection
+  faceId: string
+  texture: THREE.Texture
+  springOpacity: SpringValue<number>
+  scrollFade?: number
+}) {
   const hoveredFaceId = usePortfolioStore(s => s.hoveredFaceId)
   const isHovered = hoveredFaceId === faceId
 
@@ -60,6 +66,9 @@ export function FaceIcon({ faceDir, faceId, iconPath, springOpacity, scrollFade 
   const { pos, rot } = FACE_TRANSFORM[faceDir]
   const [ox, oy] = FACE_ICON_OFFSET[faceId] ?? [0, 0]
 
+  const noShadow = FACE_ICON_NO_SHADOW.has(faceId)
+  const tint = FACE_ICON_TINT[faceId] ?? '#ffffff'
+
   useFrame(() => {
     const baseOpacity = springOpacity.get() * (1 - scrollFade)
     const glow = glowSp.glow.get()
@@ -71,22 +80,20 @@ export function FaceIcon({ faceDir, faceId, iconPath, springOpacity, scrollFade 
 
   return (
     <group position={pos} rotation={rot}>
-      {/*
-       * Drop shadow — directional offset (right + down in face-local space)
-       * to create the illusion of the icon being raised off the surface.
-       * Visible at the right and bottom edges even when viewed straight-on.
-       */}
-      <mesh position={[ox + 0.028, oy - 0.028, 0.004]} scale={[scaleX * 1.12, scaleY * 1.12, 1]}>
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial
-          ref={shadowRef}
-          color="#0a0a0a"
-          alphaMap={texture}
-          transparent
-          opacity={0.60}
-          depthWrite={false}
-        />
-      </mesh>
+      {/* Drop shadow — directional offset (right + down in face-local space) */}
+      {!noShadow && (
+        <mesh position={[ox + 0.028, oy - 0.028, 0.004]} scale={[scaleX * 1.12, scaleY * 1.12, 1]}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial
+            ref={shadowRef}
+            color="#0a0a0a"
+            alphaMap={texture}
+            transparent
+            opacity={0.60}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
       {/* Rim glow — white halo visible on hover */}
       <mesh position={[ox, oy, 0.019]} scale={[scaleX * 1.08, scaleY * 1.08, 1]}>
@@ -101,12 +108,13 @@ export function FaceIcon({ faceDir, faceId, iconPath, springOpacity, scrollFade 
         />
       </mesh>
 
-      {/* Icon — full color PNG at raised height */}
+      {/* Icon — full color at raised height */}
       <mesh position={[ox, oy, 0.020]} scale={[scaleX, scaleY, 1]}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           ref={iconRef}
           map={texture}
+          color={tint}
           transparent
           opacity={1}
           depthWrite={false}
@@ -114,4 +122,28 @@ export function FaceIcon({ faceDir, faceId, iconPath, springOpacity, scrollFade 
       </mesh>
     </group>
   )
+}
+
+// ─── File-based icon (useLoader path) ────────────────────────────────────────
+
+function FaceIconFile({ faceDir, faceId, iconPath, springOpacity, scrollFade = 0 }: FaceIconProps & { iconPath: string }) {
+  const texture = useLoader(THREE.TextureLoader, iconPath)
+  return <FaceIconInner faceDir={faceDir} faceId={faceId} texture={texture} springOpacity={springOpacity} scrollFade={scrollFade} />
+}
+
+// ─── Canvas-generated icon ────────────────────────────────────────────────────
+
+function FaceIconCanvas({ faceDir, faceId, springOpacity, scrollFade }: FaceIconProps) {
+  const texture = useMemo(() => FACE_CANVAS_ICONS[faceId]?.(), [faceId])
+  if (!texture) return null
+  return <FaceIconInner faceDir={faceDir} faceId={faceId} texture={texture} springOpacity={springOpacity} scrollFade={scrollFade} />
+}
+
+// ─── Public component — picks the right inner renderer ───────────────────────
+
+export function FaceIcon(props: FaceIconProps) {
+  if (FACE_CANVAS_ICONS[props.faceId]) {
+    return <FaceIconCanvas {...props} />
+  }
+  return <FaceIconFile {...props} iconPath={props.iconPath!} />
 }

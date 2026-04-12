@@ -4,10 +4,10 @@
 
 // Vivid per-face colours that match the category legend (no near-black values)
 export const FACE_VIVID_RGB: Record<string, [number, number, number]> = {
-  '+x': [138, 161, 255],  // apps    – soft blue
-  '-x': [ 24, 209, 193],  // ml      – teal
+  '+x': [247, 122,   0],  // tools   – orange
+  '-x': [247, 122,   0],  // tools   – orange
   '+y': [156,  86, 219],  // physics – purple
-  '-y': [224,  67, 165],  // math    – pink
+  '-y': [138, 161, 255],  // apps    – soft blue
   '+z': [247, 122,   0],  // tools   – orange
   '-z': [212, 212, 217],  // games   – silver
 }
@@ -16,7 +16,7 @@ export const FACE_VIVID_RGB: Record<string, [number, number, number]> = {
 //   +z (0.658) → +x (0.527) → +y (0.468)
 export const mirGradientTarget: [[number,number,number],[number,number,number],[number,number,number]] = [
   [247, 122,   0],  // +z / tools
-  [138, 161, 255],  // +x / apps
+  [247, 122,   0],  // +x / tools
   [156,  86, 219],  // +y / physics
 ]
 

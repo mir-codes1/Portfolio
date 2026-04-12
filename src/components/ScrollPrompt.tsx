@@ -1,4 +1,8 @@
+import { usePortfolioStore } from '@/store/usePortfolioStore'
+
 export function ScrollPrompt() {
+  const selectedFace = usePortfolioStore(s => s.selectedFace)
+
   return (
     <div style={{
       position: 'absolute',
@@ -10,10 +14,13 @@ export function ScrollPrompt() {
       alignItems: 'center',
       gap: 12,
       pointerEvents: 'none',
+      opacity: selectedFace ? 0 : 1,
+      transition: 'opacity 0.3s ease',
     }}>
       {/* Label */}
       <div style={{
-        width: 343,
+        maxWidth: 343,
+        width: '90vw',
         fontFamily: 'Jura',
         fontStyle: 'normal',
         fontWeight: 200,
