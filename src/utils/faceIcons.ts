@@ -33,25 +33,25 @@ function makeRealEstateTexture(): THREE.CanvasTexture {
   let x = (SIZE - (wReal + wEstate)) / 2
 
   ctx.font = fontNormal
-  ctx.fillStyle = '#5aa9e6'
+  ctx.fillStyle = '#111111'
   ctx.fillText('Real', x, y1)
   x += wReal
 
   ctx.font = fontItalic
-  ctx.fillStyle = '#ff6392'
+  ctx.fillStyle = '#555555'
   ctx.fillText('estate', x, y1)
 
-  // Line 2: "Automation" (blue) + "." (yellow)
+  // Line 2: "Automation" + "."
   ctx.font = fontNormal
   const wAuto = ctx.measureText('Automation').width
   const wDot  = ctx.measureText('.').width
   x = (SIZE - (wAuto + wDot)) / 2
 
-  ctx.fillStyle = '#5aa9e6'
+  ctx.fillStyle = '#111111'
   ctx.fillText('Automation', x, y2)
   x += wAuto
 
-  ctx.fillStyle = '#ffe45e'
+  ctx.fillStyle = '#555555'
   ctx.fillText('.', x, y2)
 
   return new THREE.CanvasTexture(canvas)
@@ -102,7 +102,7 @@ export const FACE_ICON_SCALE: Record<string, number> = {
   '1-+y': 1.25,     // Sand Simulator ×1.25
   '0-+z': 1.625,    // LiveBoard ×1.625
   '1-+z': 1.859375, // Midpoint ×2.1875 −15%
-  '0--x': 1.2,      // Real Estate Automation — square canvas, two-line text logo
+  '0--x': 1.85,     // Real Estate Automation — square canvas, two-line text logo
   '1-+x': 2.0,      // Quizlio — wide text logo
 }
 
